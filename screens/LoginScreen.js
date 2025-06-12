@@ -64,10 +64,10 @@ export default function LoginScreen() {
           <View style={styles.overlay}>
             <Text style={styles.loginTitle}>User Login</Text>
 
-            <Text style={styles.label}>Nombre de Usuario</Text>
+            <Text style={styles.label}>Correo de usuario</Text>
             <TextInput
               style={styles.input}
-              placeholder="Nombre de usuario"
+              placeholder="Correo de usuario"
               placeholderTextColor="#999"
               value={usuario}
               onChangeText={setUsuario}
