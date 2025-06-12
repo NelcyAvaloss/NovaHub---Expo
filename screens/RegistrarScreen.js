@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { supabase } from './supabase';
+
 import {
   View,
   Text,
@@ -24,28 +26,57 @@ export default function RegistrarScreen() {
 
   const navigation = useNavigation();
 
-  const manejarRegistro = () => {
-    const correoValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo);
+  const manejarRegistro = async () => {
+  const correoValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo);
 
-    if (
-      !nombre.trim() ||
-      !tipoUsuario.trim() ||
-      !universidad.trim() ||
-      !correo.trim() ||
-      !contrasena.trim()
-    ) {
-      Alert.alert('Campos requeridos', 'Por favor completa todos los campos antes de continuar.');
-      return;
-    }
+  if (
+    !nombre.trim() ||
+    !tipoUsuario.trim() ||
+    !universidad.trim() ||
+    !correo.trim() ||
+    !contrasena.trim()
+  ) {
+    Alert.alert('Campos requeridos', 'Por favor completa todos los campos antes de continuar.');
+    return;
+  }
 
-    if (!correoValido) {
-      Alert.alert('Correo inválido', 'Por favor ingresa un correo electrónico válido.');
-      return;
-    }
+  if (!correoValido) {
+    Alert.alert('Correo inválido', 'Por favor ingresa un correo electrónico válido.');
+    return;
+  }
 
-    Alert.alert('Registro exitoso', 'Tu cuenta ha sido creada con éxito.');
-    navigation.navigate('Login');
-  };
+  // Crear usuario en supabase.auth
+  const { data: authData, error: authError } = await supabase.auth.signUp({
+    email: correo,
+    password: contrasena
+  });
+
+  if (authError) {
+    Alert.alert('Error al registrar', authError.message);
+    return;
+  }
+
+  const userId = authData.user?.id;
+
+  const { error: dbError } = await supabase
+    .from('usuarios')
+    .insert([
+      {
+        id: userId,
+        nombre: nombre,
+        tipo_usuario: tipoUsuario,
+        universidad: universidad
+      }
+    ]);
+
+  if (dbError) {
+    Alert.alert('Error al guardar datos', dbError.message);
+    return;
+  }
+
+  Alert.alert('Registro exitoso', 'Tu cuenta ha sido creada con éxito.');
+  navigation.navigate('Login');
+};
 
   return (
     <View style={{ flex: 1 }}>
