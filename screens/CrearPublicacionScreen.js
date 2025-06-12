@@ -1,6 +1,7 @@
 import React, { useState, useContext } from 'react';
 import { PublicacionContext } from '../contexts/PublicacionContext';
 // import { supabase } from './supabase'; ❌ Desactivado porque ahora usamos almacenamiento local
+import * as FileSystem from 'expo-file-system';
 import {
   View,
   Text,
@@ -83,28 +84,42 @@ export default function CrearPublicacionScreen({ navigation }) {
     }
   };
 
-  const seleccionarPDF = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: 'application/pdf',
-        copyToCacheDirectory: true,
-      });
+   // Asegúrate de tener esta línea arriba
 
-      if (result.canceled || !result.assets?.length) return;
+const seleccionarPDF = async () => {
+  try {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: 'application/pdf',
+      copyToCacheDirectory: true,
+    });
 
-      const file = result.assets[0];
-      setPdfFile({
-        uri: file.uri,
-        fileName: file.name,
-        type: file.mimeType || 'application/pdf',
-      });
+    if (result.canceled || !result.assets?.length) return;
 
-      Alert.alert('PDF seleccionado', file.name);
-    } catch (error) {
-      console.error('Error al seleccionar PDF:', error);
-      Alert.alert('Error', 'No se pudo seleccionar el archivo');
-    }
-  };
+    const file = result.assets[0];
+
+    // ✅ Nueva ruta accesible en documentDirectory
+    const destinationPath = FileSystem.documentDirectory + file.name;
+
+    // ✅ Copiar el archivo a una ruta externa segura
+    await FileSystem.copyAsync({
+      from: file.uri,
+      to: destinationPath,
+    });
+
+    // ✅ Guardar el nuevo PDF con ruta segura
+    setPdfFile({
+      uri: destinationPath,
+      fileName: file.name,
+      type: file.mimeType || 'application/pdf',
+    });
+
+    Alert.alert('PDF seleccionado', file.name);
+  } catch (error) {
+    console.error('Error al seleccionar PDF:', error);
+    Alert.alert('Error', 'No se pudo seleccionar el archivo');
+  }
+};
+
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>

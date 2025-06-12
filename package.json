@@ -22,7 +22,8 @@
     "react-native-gesture-handler": "^2.25.0",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.11.1",
-    "expo-web-browser": "~14.1.6"
+    "expo-web-browser": "~14.1.6",
+    "expo-intent-launcher": "~12.1.5"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"

@@ -1,10 +1,19 @@
-// ✅ Archivo: HomeScreen.js
 import React, { useRef, useContext } from 'react';
-import { FlatList, View, Text, TouchableOpacity, Image, ImageBackground, TextInput, Animated, Linking } from 'react-native';
+import {
+  FlatList,
+  View,
+  Text,
+  TouchableOpacity,
+  Image,
+  ImageBackground,
+  TextInput,
+  Animated,
+  Alert,
+  Linking,
+} from 'react-native';
 import { PublicacionContext } from '../contexts/PublicacionContext';
 import { styles } from './Home.styles';
-import * as WebBrowser from 'expo-web-browser';
-
+import * as IntentLauncher from 'expo-intent-launcher';
 
 export default function HomeScreen({ navigation }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -63,21 +72,25 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.cardSubtitle}>Categoría: {item.categoria} - {item.area}</Text>
 
             {item.pdfUri && (
-  <TouchableOpacity
-  style={styles.verPdfButton}
-  onPress={async () => {
-    console.log('PDF URI:', item.pdfUri);
-    const result = await WebBrowser.openBrowserAsync(item.pdfUri);
-    if (result.type === 'cancel') {
-      console.log('Cierre del visor');
-    }
-  }}
->
-  <Text style={styles.verPdfText}>Ver PDF</Text>
-</TouchableOpacity>
-
-)}
-
+              <TouchableOpacity
+                style={styles.verPdfButton}
+                onPress={async () => {
+                  try {
+                    console.log('Abriendo PDF:', item.pdfUri); // 🪵 log para depuración
+                    await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+                      data: item.pdfUri,
+                      flags: 1,
+                      type: 'application/pdf',
+                    });
+                  } catch (error) {
+                    Alert.alert('Nota:', 'Esta opcion se habilitara proximamente');
+                    console.log('Error abriendo PDF:', error);
+                  }
+                }}
+              >
+                <Text style={styles.verPdfText}>Ver Mas</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
       />
