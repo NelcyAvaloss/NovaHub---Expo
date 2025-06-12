@@ -104,5 +104,32 @@ titlePublicacion: {
   publicarIcono: {
     width: 40,
     height: 40,
+  
   },
+
+
+  cardImage: {
+  width: '100%',
+  height: 200,
+  borderRadius: 10,
+  marginBottom: 10,
+},
+
+
+verPdfButton: {
+  backgroundColor: '#4F9DDE',
+  padding: 8,
+  borderRadius: 6,
+  alignItems: 'center',
+  marginTop: 8,
+},
+verPdfText: {
+  color: '#fff',
+  fontWeight: 'bold',
+},
+
+
+
+
+
 });
