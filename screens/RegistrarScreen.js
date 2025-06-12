@@ -47,14 +47,19 @@ export default function RegistrarScreen() {
 
   // Crear usuario en supabase.auth
   const { data: authData, error: authError } = await supabase.auth.signUp({
-    email: correo,
-    password: contrasena
-  });
+  email: correo,
+  password: contrasena
+});
 
-  if (authError) {
-    Alert.alert('Error al registrar', authError.message);
-    return;
-  }
+
+
+// ✅ Mostrar mensaje y redirigir al login
+Alert.alert(
+  'Registro exitoso',
+  'Revisa tu correo para confirmar tu cuenta.',
+  [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
+);
+
 
   const userId = authData.user?.id;
 
@@ -155,15 +160,6 @@ export default function RegistrarScreen() {
               <Text style={styles.primaryButtonText}>Create Account</Text>
             </TouchableOpacity>
 
-            <Text style={styles.orText}>--------------  o regístrate con  --------------</Text>
-
-            <TouchableOpacity style={styles.googleButton}>
-              <Image
-                source={require('../assets/google.png')}
-                style={styles.googleLogo}
-              />
-              <Text style={styles.googleText}>Google</Text>
-            </TouchableOpacity>
           </View>
         </ScrollView>
       </ImageBackground>
