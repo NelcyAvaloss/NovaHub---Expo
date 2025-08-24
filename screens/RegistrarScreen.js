@@ -51,7 +51,10 @@ export default function RegistrarScreen() {
   password: contrasena
 });
 
-
+if (authError) {
+  Alert.alert('Error de registro', authError.message);
+  return;
+}
 
 // ✅ Mostrar mensaje y redirigir al login
 Alert.alert(
@@ -60,8 +63,18 @@ Alert.alert(
   [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
 );
 
+const { loginData, loginError } = await supabase.auth.signInWithPassword({
+  email: correo,
+  password: contrasena
+});
 
-  const userId = authData.user?.id;
+if (loginError) {
+  Alert.alert('Error de inicio de sesión', loginError.message);
+  return;
+}
+
+  const userId = loginData.user?.id;
+  
 
   const { error: dbError } = await supabase
     .from('usuarios')
@@ -76,8 +89,11 @@ Alert.alert(
 
   if (dbError) {
     Alert.alert('Error al guardar datos', dbError.message);
+      //Alertar el id del usuario
+  Alert.alert('ID de usuario', `Tu ID de usuario es: ${userId}`); 
     return;
   }
+
 
   Alert.alert('Registro exitoso', 'Tu cuenta ha sido creada con éxito.');
   navigation.navigate('Login');
