@@ -63,24 +63,46 @@ Alert.alert(
   [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
 );
 
-const { loginData, loginError } = await supabase.auth.signInWithPassword({
-  email: correo,
-  password: contrasena
+//Tratar de obtener el id de supabase, si no funciona mostrar una alerta con el error
+const {userId, userEmail} = await supabase.auth.getUser().then(({ data, error }) => {
+  if (error) {
+    return null;
+  }
+  return {
+    userId: data.user.id,
+    userEmail: data.user.email
+  };
 });
 
-if (loginError) {
-  Alert.alert('Error de inicio de sesión', loginError.message);
+//Cuales son todas las propiedades de authdata?
+
+// authData es un objeto que contiene información sobre el usuario autenticado
+// Las propiedades comunes de authData incluyen:
+// - user: Información del usuario, que puede incluir:
+//   - id: El ID único del usuario
+//   - email: La dirección de correo electrónico del usuario
+//   - created_at: La fecha y hora en que se creó la cuenta
+//   - updated_at: La fecha y hora en que se actualizó la cuenta
+// - session: Información sobre la sesión actual del usuario
+//   - access_token: El token de acceso para autenticar solicitudes
+//   - refresh_token: El token de actualización para obtener nuevos tokens de acceso
+//   - expires_in: El tiempo en segundos hasta que expire el token de acceso
+
+if (!userId) {
+  Alert.alert('Error', 'No se pudo obtener el ID de usuario.');
   return;
 }
 
-  const userId = loginData.user?.id;
-  
+Alert.alert('ID de usuario', `Tu ID de usuario es: ${userId}, tu correo es: ${userEmail}`);
+return;
+
+  // Guardar datos adicionales en la tabla "usuarios"
 
   const { error: dbError } = await supabase
     .from('usuarios')
     .insert([
       {
-        id: userId,
+        id: authData.user.id,
         nombre: nombre,
         tipo_usuario: tipoUsuario,
         universidad: universidad
@@ -90,7 +112,7 @@ if (loginError) {
   if (dbError) {
     Alert.alert('Error al guardar datos', dbError.message);
       //Alertar el id del usuario
-  Alert.alert('ID de usuario', `Tu ID de usuario es: ${userId}`); 
+  Alert.alert('Datos de usuario', `Tu ID de usuario es: ${userId}, tu correo es: ${userEmail}`); 
     return;
   }
 
