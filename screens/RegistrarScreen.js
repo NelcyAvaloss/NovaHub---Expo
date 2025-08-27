@@ -60,8 +60,16 @@ if (authError) {
 Alert.alert(
   'Registro exitoso',
   'Revisa tu correo para confirmar tu cuenta.',
-  [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
-);
+  [{ text: 'OK', onPress: async () => {
+    const {data: loginData, error: loginError} = await supabase.auth.signInWithPassword({
+  email: correo,
+  password: contrasena
+});
+
+if (loginError) {
+  Alert.alert('Error de inicio de sesión', loginError.message);
+  return;
+}
 
 //Tratar de obtener el id de supabase, si no funciona mostrar una alerta con el error
 const {userId, userEmail} = await supabase.auth.getUser().then(({ data, error }) => {
@@ -73,28 +81,13 @@ const {userId, userEmail} = await supabase.auth.getUser().then(({ data, error })
     userEmail: data.user.email
   };
 });
-
-//Cuales son todas las propiedades de authdata?
-
-// authData es un objeto que contiene información sobre el usuario autenticado
-// Las propiedades comunes de authData incluyen:
-// - user: Información del usuario, que puede incluir:
-//   - id: El ID único del usuario
-//   - email: La dirección de correo electrónico del usuario
-//   - created_at: La fecha y hora en que se creó la cuenta
-//   - updated_at: La fecha y hora en que se actualizó la cuenta
-// - session: Información sobre la sesión actual del usuario
-//   - access_token: El token de acceso para autenticar solicitudes
-//   - refresh_token: El token de actualización para obtener nuevos tokens de acceso
-//   - expires_in: El tiempo en segundos hasta que expire el token de acceso
-
 if (!userId) {
   Alert.alert('Error', 'No se pudo obtener el ID de usuario.');
   return;
 }
 
 Alert.alert('ID de usuario', `Tu ID de usuario es: ${userId}, tu correo es: ${userEmail}`);
-return;
+
 
   // Guardar datos adicionales en la tabla "usuarios"
 
@@ -119,6 +112,26 @@ return;
 
   Alert.alert('Registro exitoso', 'Tu cuenta ha sido creada con éxito.');
   navigation.navigate('Login');
+  } }],
+);
+
+
+
+//Cuales son todas las propiedades de authdata?
+
+// authData es un objeto que contiene información sobre el usuario autenticado
+// Las propiedades comunes de authData incluyen:
+// - user: Información del usuario, que puede incluir:
+//   - id: El ID único del usuario
+//   - email: La dirección de correo electrónico del usuario
+//   - created_at: La fecha y hora en que se creó la cuenta
+//   - updated_at: La fecha y hora en que se actualizó la cuenta
+// - session: Información sobre la sesión actual del usuario
+//   - access_token: El token de acceso para autenticar solicitudes
+//   - refresh_token: El token de actualización para obtener nuevos tokens de acceso
+//   - expires_in: El tiempo en segundos hasta que expire el token de acceso
+
+
 };
 
   return (
