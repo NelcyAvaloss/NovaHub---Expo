@@ -57,7 +57,7 @@ export default function RegistrarScreen() {
     }
   }
 });
-
+//EL trigger en postgress para guardar los da
 
 
 // ✅ Mostrar mensaje y redirigir al login
@@ -70,6 +70,7 @@ if (authError) {
   console.error('Error al crear usuario en auth:', authError.message);
   Alert.alert('Error', 'Hubo un error en el registro. Por favor intenta nuevamente.');
   return;
+}
 }
 
   return (
