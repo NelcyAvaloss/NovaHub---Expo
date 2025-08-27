@@ -48,7 +48,14 @@ export default function RegistrarScreen() {
   // Crear usuario en supabase.auth
   const { data: authData, error: authError } = await supabase.auth.signUp({
   email: correo,
-  password: contrasena
+  password: contrasena,
+  options: {
+    data: {
+      nombre: nombre,
+      tipo_usuario: tipoUsuario,
+      universidad: universidad
+    }
+  }
 });
 
 
@@ -56,32 +63,14 @@ export default function RegistrarScreen() {
 // ✅ Mostrar mensaje y redirigir al login
 Alert.alert(
   'Registro exitoso',
-  'Revisa tu correo para confirmar tu cuenta.',
+  'Revisa tu correo para confirmar tu cuenta. Luego inicia sesión.',
   [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
 );
-
-
-  const userId = authData.user?.id;
-
-  const { error: dbError } = await supabase
-    .from('usuarios')
-    .insert([
-      {
-        id: userId,
-        nombre: nombre,
-        tipo_usuario: tipoUsuario,
-        universidad: universidad
-      }
-    ]);
-
-  if (dbError) {
-    Alert.alert('Error al guardar datos', dbError.message);
-    return;
-  }
-
-  Alert.alert('Registro exitoso', 'Tu cuenta ha sido creada con éxito.');
-  navigation.navigate('Login');
-};
+if (authError) {
+  console.error('Error al crear usuario en auth:', authError.message);
+  Alert.alert('Error', 'Hubo un error en el registro. Por favor intenta nuevamente.');
+  return;
+}
 
   return (
     <View style={{ flex: 1 }}>
