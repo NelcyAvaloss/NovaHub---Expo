@@ -180,4 +180,122 @@ export default StyleSheet.create({
     color: '#EAF2FF',
     fontSize: 16,
   },
+
+  /* =========================
+     💬 Comentarios y respuestas
+     ========================= */
+  commentSection: {
+    marginTop: 18,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.06)',
+  },
+  commentTitle: {
+    color: '#EAF2FF',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 10,
+  },
+
+  // input nuevo comentario
+  commentInputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 14,
+  },
+  commentAvatar: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: '#1a2233',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  commentAvatarSm: {
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: '#1a2233',
+    alignItems: 'center', justifyContent: 'center',
+    marginRight: 10,
+  },
+  commentAvatarTxt: { color: '#EAF2FF', fontWeight: '700' },
+  commentTextInput: {
+    flex: 1,
+    minHeight: 40,
+    maxHeight: 120,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    color: '#EAF2FF',
+    fontSize: 14,
+  },
+  commentSendBtn: {
+    alignSelf: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#2F80ED',
+  },
+  commentSendBtnDisabled: { opacity: 0.5 },
+  commentSendBtnTxt: { color: '#fff', fontWeight: '700', fontSize: 12 },
+
+  // item comentario
+  commentItem: { marginBottom: 14 },
+  commentHeaderRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  commentMetaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  commentAuthor: { color: '#EAF2FF', fontWeight: '700', marginRight: 6, fontSize: 13 },
+  commentDate: { color: '#92A0B5', fontSize: 11 },
+  commentBubble: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  commentBody: { color: '#CDD8EE', fontSize: 14, lineHeight: 20 },
+
+  commentActionsRow: { flexDirection: 'row', marginTop: 6 },
+  replyBtnText: { color: '#6CA5FF', fontSize: 12, fontWeight: '700' },
+
+  // respuestas
+  replyList: { marginTop: 8, paddingLeft: 38 },
+  replyItem: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
+  replyAvatar: {
+    width: 24, height: 24, borderRadius: 12,
+    backgroundColor: '#1a2233',
+    alignItems: 'center', justifyContent: 'center',
+    marginRight: 10,
+  },
+  replyAuthor: { color: '#EAF2FF', fontWeight: '700', marginRight: 6, fontSize: 13 },
+  replyBubble: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+
+  // caja de respuesta
+  replyBox: {
+    marginTop: 8,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 10,
+    padding: 10,
+  },
+  replyTextInput: {
+    minHeight: 40, maxHeight: 120,
+    paddingHorizontal: 10, paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    color: '#EAF2FF',
+    fontSize: 14,
+  },
+  replyActionsRow: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  replySendBtn: {
+    paddingHorizontal: 12, paddingVertical: 10,
+    borderRadius: 8, backgroundColor: '#2F80ED',
+  },
+  replySendBtnTxt: { color: '#fff', fontWeight: '700', fontSize: 12 },
+  cancelReplyText: { color: '#B8C3D9', fontWeight: '600', fontSize: 12 },
 });
