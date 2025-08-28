@@ -61,7 +61,7 @@ export const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0e0e2c', // Azul oscuro
+    color: '#0e0e2c', 
     marginBottom: 6,
     marginLeft: 5,
   },

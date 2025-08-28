@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   ImageBackground,
   StatusBar,
-  Alert, // ← ✅ Importante para mostrar el mensaje de error
+  Alert, 
 } from 'react-native';
 import { styles } from './Login.styles';
 import { useNavigation } from '@react-navigation/native';
@@ -89,7 +89,7 @@ export default function LoginScreen() {
             </View>
 
             {/* Botón decorativo por ahora; funcionalidad se implementará más adelante */}
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('Recuperacion')}>
               <Text style={styles.forgotText}>¿Has olvidado tu contraseña?</Text>
             </TouchableOpacity>
 
