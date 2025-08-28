@@ -30,7 +30,7 @@ export default function RecupPasswordScreen({ navigation }) { //recibe navigatio
         {/* overlay debajo de todo */}
         <View style={styles.overlay} />
 
-        {/* Botón volver → Login (sin estilos inline) */}
+        {/* Botón volver → Login  */}
         <TouchableOpacity
           onPress={() => navigation.navigate("Login")}
           style={styles.backButton}
