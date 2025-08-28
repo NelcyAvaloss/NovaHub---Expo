@@ -1,6 +1,6 @@
 import React, { useState, useContext } from 'react';
 import { PublicacionContext } from '../contexts/PublicacionContext';
-// import { supabase } from './supabase'; ❌ Desactivado porque ahora usamos almacenamiento local
+// import { supabase } from './supabase';  Desactivado porque ahora usamos almacenamiento local
 import * as FileSystem from 'expo-file-system';
 import {
   View,
@@ -28,7 +28,7 @@ export default function CrearPublicacionScreen({ navigation }) {
   const [descripcion, setDescripcion] = useState('');
   const [equipo, setEquipo] = useState('');
 
-  const { agregarPublicacion } = useContext(PublicacionContext); // ✅ Contexto para guardar localmente
+  const { agregarPublicacion } = useContext(PublicacionContext); //  Contexto para guardar localmente
 
   const categoriasConAreas = {
     'Ciencia y Tecnología': ['Desarrollo Web', 'Biotecnología', 'Robótica'],
@@ -40,7 +40,7 @@ export default function CrearPublicacionScreen({ navigation }) {
 
   const categorias = Object.keys(categoriasConAreas);
 
-  // ✅ Nueva función para guardar publicación de forma local
+  //  Nueva función para guardar publicación de forma local
   const guardarPublicacionLocal = () => {
     if (!titulo || !autor || !descripcion || !categoriaSeleccionada || !areaSeleccionada || !pdfFile || !portadaUri) {
       Alert.alert('Campos incompletos', 'Por favor, completa todos los campos');
@@ -60,7 +60,7 @@ export default function CrearPublicacionScreen({ navigation }) {
       fecha: new Date().toISOString(),
     };
 
-    agregarPublicacion(nueva); // ✅ Guardar en contexto
+    agregarPublicacion(nueva); //  Guardar en contexto
     Alert.alert('Éxito', 'Publicación guardada localmente');
     navigation.navigate('Home');
   };
@@ -97,16 +97,16 @@ const seleccionarPDF = async () => {
 
     const file = result.assets[0];
 
-    // ✅ Nueva ruta accesible en documentDirectory
+    //  Nueva ruta accesible en documentDirectory
     const destinationPath = FileSystem.documentDirectory + file.name;
 
-    // ✅ Copiar el archivo a una ruta externa segura
+    //  Copiar el archivo a una ruta externa segura
     await FileSystem.copyAsync({
       from: file.uri,
       to: destinationPath,
     });
 
-    // ✅ Guardar el nuevo PDF con ruta segura
+    //  Guardar el nuevo PDF con ruta segura
     setPdfFile({
       uri: destinationPath,
       fileName: file.name,
@@ -153,7 +153,7 @@ const seleccionarPDF = async () => {
 
         <TouchableOpacity
           style={styles.inputButton}
-          onPress={guardarPublicacionLocal} // ✅ Reemplazado por la función local
+          onPress={guardarPublicacionLocal} //  Reemplazado por la función local
         >
           <Text style={styles.inputLabel}>Publicar</Text>
         </TouchableOpacity>

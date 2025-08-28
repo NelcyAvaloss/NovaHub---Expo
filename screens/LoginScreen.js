@@ -65,13 +65,13 @@ export default function LoginScreen() {
           <Text style={styles.welcome}>Welcome{"\n"}Back!</Text>
 
           <View style={styles.overlay}>
-            {/* ⬇️ Hace que el layout se acomode con el teclado */}
+            {/*  Hace que el layout se acomode con el teclado */}
             <KeyboardAvoidingView
               style={{ flex: 1 }}
               behavior={Platform.OS === 'ios' ? 'padding' : 'position'}
               keyboardVerticalOffset={0}
             >
-              {/* ⬇️ Permite desplazarse cuando el teclado aparece */}
+              {/*  Permite desplazarse cuando el teclado aparece */}
               <ScrollView
                 ref={scrollRef}
                 contentContainerStyle={{ paddingBottom: 60 }}
@@ -103,7 +103,7 @@ export default function LoginScreen() {
                     onChangeText={setContrasena}
                     secureTextEntry={!verContrasena}
                     returnKeyType="done"
-                    // ⬇️ Al enfocar, baja el scroll para que quede visible
+                    //  Al enfocar, baja el scroll para que quede visible
                     onFocus={() => {
                       setTimeout(() => {
                         scrollRef.current?.scrollToEnd({ animated: true });
