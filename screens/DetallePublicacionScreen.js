@@ -1,25 +1,23 @@
 import React, { useMemo, useState, useCallback, useRef } from 'react';
 import { View, Text, Image, TouchableOpacity, ScrollView, Alert, TextInput } from 'react-native';
+import Pdf from 'react-native-pdf';                    // ✅ Visor nativo de PDF
 import { WebView } from 'react-native-webview';
 import * as IntentLauncher from 'expo-intent-launcher';
 import styles from './DetallePublicacion.styles';
 
 export default function DetallePublicacionScreen({ route, navigation }) {
   const publicacion = route?.params?.publicacion;
+
   const [mostrarDoc, setMostrarDoc] = useState(false);
-  const [falloWebViewLocal, setFalloWebViewLocal] = useState(false);
+  const [pdfFailed, setPdfFailed] = useState(false);          // ✅ error en visor nativo
+  const [falloWebViewLocal, setFalloWebViewLocal] = useState(false); // error en WebView
 
   // 💬 Estado de comentarios (local)
-  const [comments, setComments] = useState([
-    // Ejemplo inicial (puedes borrar este objeto)
-    // { id: 1, author: 'Ana', text: '¡Excelente trabajo!', date: new Date().toISOString(), replies: [
-    //   { id: '1-1', author: 'Luis', text: 'Totalmente de acuerdo', date: new Date().toISOString() }
-    // ] }
-  ]);
+  const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
 
   // Responder a un comentario
-  const [replyTo, setReplyTo] = useState(null);  // id del comentario al que respondes
+  const [replyTo, setReplyTo] = useState(null);
   const [replyText, setReplyText] = useState('');
   const replyInputRef = useRef(null);
 
@@ -46,18 +44,22 @@ export default function DetallePublicacionScreen({ route, navigation }) {
       .filter(Boolean);
   }, [equipo_colaborador]);
 
-  // WebView source
+  // Fuente para WebView (solo para NO-PDF o fallback remoto)
   const webSource = useMemo(() => {
     if (!pdfUri) return null;
-    if (isRemote) {
-      if (isPDF) {
-        const viewer = `https://drive.google.com/viewerng/viewer?embedded=true&url=${encodeURIComponent(pdfUri)}`;
-        return { uri: viewer };
-      }
-      return { uri: pdfUri };
+
+    // Si es PDF remoto, como fallback usa el visor de Google en WebView
+    if (isPDF && isRemote) {
+      const viewer = `https://drive.google.com/viewerng/viewer?embedded=true&url=${encodeURIComponent(pdfUri)}`;
+      return { uri: viewer };
     }
-    return { uri: pdfUri };
-  }, [pdfUri, isRemote, isPDF]);
+
+    // No es PDF: mostrar tal cual en WebView (html/url)
+    if (!isPDF) return { uri: pdfUri };
+
+    // PDF local: no usamos WebView por defecto (Pdf nativo lo maneja)
+    return null;
+  }, [pdfUri, isPDF, isRemote]);
 
   const abrirConVisorDelSistema = useCallback(async () => {
     try {
@@ -128,7 +130,11 @@ export default function DetallePublicacionScreen({ route, navigation }) {
   return (
     <View style={styles.wrapper}>
       {/* Botón volver */}
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} activeOpacity={0.7}>
+      <TouchableOpacity
+        onPress={() => navigation.goBack()}
+        style={styles.backButton}
+        activeOpacity={0.7}
+      >
         <Text style={styles.backIcon}>↩</Text>
       </TouchableOpacity>
 
@@ -173,7 +179,16 @@ export default function DetallePublicacionScreen({ route, navigation }) {
 
           {/* Ver documento */}
           {!!pdfUri && (
-            <TouchableOpacity style={styles.primaryBtn} onPress={() => setMostrarDoc(true)} activeOpacity={0.85}>
+            <TouchableOpacity
+              style={styles.primaryBtn}
+              onPress={() => {
+                // reset de estados de visor al abrir
+                setPdfFailed(false);
+                setFalloWebViewLocal(false);
+                setMostrarDoc(true);
+              }}
+              activeOpacity={0.85}
+            >
               <Text style={styles.primaryBtnText}>Ver documento</Text>
             </TouchableOpacity>
           )}
@@ -216,9 +231,7 @@ export default function DetallePublicacionScreen({ route, navigation }) {
                   <View style={{ flex: 1 }}>
                     <View style={styles.commentMetaRow}>
                       <Text style={styles.commentAuthor}>{c.author || 'Usuario'}</Text>
-                      <Text style={styles.commentDate}>
-                        • {new Date(c.date).toLocaleDateString()}
-                      </Text>
+                      <Text style={styles.commentDate}>• {new Date(c.date).toLocaleDateString()}</Text>
                     </View>
                     <View style={styles.commentBubble}>
                       <Text style={styles.commentBody}>{c.text}</Text>
@@ -242,9 +255,7 @@ export default function DetallePublicacionScreen({ route, navigation }) {
                             <View style={{ flex: 1 }}>
                               <View style={styles.commentMetaRow}>
                                 <Text style={styles.replyAuthor}>{r.author || 'Usuario'}</Text>
-                                <Text style={styles.commentDate}>
-                                  • {new Date(r.date).toLocaleDateString()}
-                                </Text>
+                                <Text style={styles.commentDate}>• {new Date(r.date).toLocaleDateString()}</Text>
                               </View>
                               <View style={styles.replyBubble}>
                                 <Text style={styles.commentBody}>{r.text}</Text>
@@ -289,19 +300,36 @@ export default function DetallePublicacionScreen({ route, navigation }) {
         </ScrollView>
       ) : (
         <View style={styles.viewerWrap}>
-          {!!webSource && !falloWebViewLocal && (
+          {/* ✅ INTENTO 1: Visor nativo PDF */}
+          {isPDF && !!pdfUri && !pdfFailed && (
+            <Pdf
+              source={isRemote ? { uri: pdfUri, cache: true } : { uri: pdfUri }}
+              trustAllCerts={false}
+              onLoadComplete={(pages) => console.log(`PDF cargado: ${pages} páginas`)}
+              onError={(e) => {
+                console.log('Error PDF:', e);
+                setPdfFailed(true); // activa fallback
+              }}
+              onPressLink={(uri) => console.log('Link en PDF:', uri)}
+              style={styles.webview}
+            />
+          )}
+
+          {/* ✅ INTENTO 2: WebView (no-PDF, o PDF remoto si falló Pdf) */}
+          {!!webSource && (!isPDF || pdfFailed) && !falloWebViewLocal && (
             <WebView
               source={webSource}
               originWhitelist={['*']}
               startInLoadingState
               allowsInlineMediaPlayback
               allowingReadAccessToURL={isRemote ? undefined : pdfUri}
-              onError={() => { if (!isRemote) setFalloWebViewLocal(true); }}
+              onError={() => setFalloWebViewLocal(true)}
               style={styles.webview}
             />
           )}
 
-          {!isRemote && (!!pdfUri) && falloWebViewLocal && (
+          {/* ✅ INTENTO 3: Fallback local → abrir con visor del sistema */}
+          {isPDF && !isRemote && (!!pdfUri) && (pdfFailed || falloWebViewLocal) && (
             <View style={[styles.flex, styles.center, styles.fallback]}>
               <Text style={styles.fallbackText}>
                 No se pudo mostrar el PDF local dentro de la app en este dispositivo.
@@ -312,7 +340,16 @@ export default function DetallePublicacionScreen({ route, navigation }) {
             </View>
           )}
 
-          <TouchableOpacity style={styles.closeViewerBtn} onPress={() => setMostrarDoc(false)} activeOpacity={0.85}>
+          {/* Cerrar visor */}
+          <TouchableOpacity
+            style={styles.closeViewerBtn}
+            onPress={() => {
+              setMostrarDoc(false);
+              setPdfFailed(false);
+              setFalloWebViewLocal(false);
+            }}
+            activeOpacity={0.85}
+          >
             <Text style={styles.closeViewerText}>Cerrar documento</Text>
           </TouchableOpacity>
         </View>
