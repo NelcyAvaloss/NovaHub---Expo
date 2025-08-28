@@ -24,7 +24,7 @@ export default function App() {
       <NavigationContainer>
         <StatusBar style="light" />
         <Stack.Navigator
-          initialRouteName="Home"
+          initialRouteName="Bienvenido"
           screenOptions={{ headerShown: false }}
         >
           <Stack.Screen name="Recuperacion" component={RecupPasswordScreen} />

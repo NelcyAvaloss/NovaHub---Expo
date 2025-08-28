@@ -12,21 +12,16 @@ export const styles = StyleSheet.create({
     gap: 20,
   },
   logo: {
-    width: 250,
-    height: 250,
-    marginBottom: 10,
+    width: 205,
+    height: 205,
+    marginBottom: 125,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#ffffff',
-    marginBottom: 40,
-  },
+  
   button: {
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    paddingVertical: 12,
-    paddingHorizontal: 40,
-    borderRadius: 30,
+    paddingVertical: 6,
+    paddingHorizontal: 35,
+    borderRadius: 35,
     width: 250,
     alignItems: 'center',
     marginBottom: 15,
@@ -34,6 +29,6 @@ export const styles = StyleSheet.create({
   buttonText: {
     color: '#000',
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 15,
   },
 });

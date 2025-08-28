@@ -83,7 +83,7 @@ if (authError) {
         resizeMode="cover"
       >
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={{ fontSize: 60, color: '#fff', lineHeight: 45 }}>↩</Text>
+          <Text style={{ fontSize: 50, color: '#fff', lineHeight: 45 }}>↩</Text>
         </TouchableOpacity>
 
         <Text style={styles.title}>Create An{"\n"}Account</Text>

@@ -5,9 +5,9 @@ export const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
 
   /* ======== HEADER ======== */
-  headerBackground: { width: '100%', height: 120, resizeMode: 'cover' },
+  headerBackground: { width: '100%', height: 105, resizeMode: 'cover' },
   header: {
-    marginTop: 40,
+    marginTop: 38,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
@@ -15,15 +15,15 @@ export const styles = StyleSheet.create({
   },
   profileIcon: { width: 38, height: 38, borderRadius: 19 },
   icon: { width: 24, height: 24 },
-  title: { fontSize: 25, color: '#fff', fontWeight: 'bold', marginTop: 20, letterSpacing: 0.2 },
+  title: { fontSize: 21, color: '#fff', fontWeight: 'bold', marginTop: 20, letterSpacing: 0.2 },
 
   /* ======== BUSCADOR ======== */
   searchContainer: {
-    marginTop: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 12,
+    marginTop: 3,
+    paddingHorizontal: 25,
+    paddingVertical: 5,
     backgroundColor: '#0e0e2c',
-    borderRadius: 15,
+    borderRadius: 18,
   },
   searchBar: {
     backgroundColor: '#fff',
@@ -40,7 +40,7 @@ export const styles = StyleSheet.create({
 
   /* ======== SECCIÓN PUBLICACIONES ======== */
   titlePublicacion: {
-    fontSize: 22,
+    fontSize: 16,
     fontWeight: '700',
     color: '#1b1f2a',
     textAlign: 'left',
@@ -171,12 +171,12 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     backgroundColor: '#0e0e2c',
-    paddingVertical: 5,
+    paddingVertical: 2,
     borderRadius: 30,
-    marginHorizontal: 4,
-    top: -1,
+    marginHorizontal: 2,
+    top: -4,
   },
-  navIcon: { width: 40, height: 40 },
+  navIcon: { width: 35, height: 35 },
   publicarBoton: {
     backgroundColor: '#4F9DDE',
     borderRadius: 50,
