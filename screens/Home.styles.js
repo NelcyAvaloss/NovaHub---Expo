@@ -1,15 +1,11 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 
 export const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  headerBackground: {
-    width: '100%',
-    height: 120,
-    resizeMode: 'cover',
-  },
+  /* ======== LAYOUT GENERAL ======== */
+  container: { flex: 1, backgroundColor: '#fff' },
+
+  /* ======== HEADER ======== */
+  headerBackground: { width: '100%', height: 120, resizeMode: 'cover' },
   header: {
     marginTop: 40,
     paddingHorizontal: 20,
@@ -17,32 +13,11 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  profileIcon: {
-    width: 38,
-    height: 38,
-  },
-  icon: {
-    width: 24,
-    height: 24,
-  },
-  title: {
-    fontSize: 25,
-    color: '#fff',
-    fontWeight: 'bold',
-    marginTop: 20,
-  },
+  profileIcon: { width: 38, height: 38, borderRadius: 19 },
+  icon: { width: 24, height: 24 },
+  title: { fontSize: 25, color: '#fff', fontWeight: 'bold', marginTop: 20, letterSpacing: 0.2 },
 
-titlePublicacion: {
-  fontSize: 22,
-  fontWeight: 'bold',
-  color: '5e5b5b',
-  textAlign: 'left',
-  marginLeft: 20,
-  marginTop: 20,
-},
-
-
-
+  /* ======== BUSCADOR ======== */
   searchContainer: {
     marginTop: 10,
     paddingHorizontal: 10,
@@ -57,22 +32,141 @@ titlePublicacion: {
     alignItems: 'center',
     paddingHorizontal: 12,
     height: 40,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.08)',
   },
-  searchIcon: {
-    width: 18,
-    height: 18,
-    marginRight: 8,
+  searchIcon: { width: 18, height: 18, marginRight: 8, opacity: 0.9 },
+  searchInput: { flex: 1, fontSize: 14, color: '#0f172a' },
+
+  /* ======== SECCIÓN PUBLICACIONES ======== */
+  titlePublicacion: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1b1f2a',
+    textAlign: 'left',
+    marginLeft: 20,
+    marginTop: 20,
+    marginBottom: 8,
   },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    color: '#000',
+
+  // Contenedor del feed
+  feedContainer: { flex: 1, paddingHorizontal: 12 },
+  listContent: { paddingTop: 8, paddingBottom: 100 },
+
+  // Contenedor externo para separar del fondo
+  publicacionContainer: {
+    marginBottom: 14,
+    paddingHorizontal: 2,
   },
-  content: {
-    flex: 1,
-    backgroundColor: '#fff',
-    padding: 20,
+
+  // Tarjeta
+  publicacionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+
+    // Sombra iOS
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 8 },
+    // Elevación Android
+    ...Platform.select({ android: { elevation: 3 } }),
+
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 10,
   },
+
+  // Header (avatar + autor + fecha)
+  publicacionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  avatarLetter: { color: '#0f172a', fontWeight: '700' },
+  headerText: { flexShrink: 1 },
+  nombreAutor: { color: '#0f172a', fontWeight: '700', fontSize: 14 },
+  fechaTexto: { color: '#6B7280', fontSize: 12, marginTop: 2 },
+
+  // Texto
+  publicacionTitulo: { color: '#111827', fontSize: 16, fontWeight: '700', marginTop: 4 },
+  publicacionTexto: { color: '#374151', fontSize: 14, lineHeight: 20, marginTop: 4 },
+
+  // Imagen
+  publicacionImagen: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+    marginTop: 10,
+  },
+
+  // Chips/meta
+  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
+  tagChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#F1F5F9',
+    color: '#334155',
+    fontSize: 12,
+    overflow: 'hidden',
+    marginRight: 6,
+    marginBottom: 6,
+  },
+
+  // 👥 Colaboradores
+  collabBlock: { marginTop: 12 },
+  collabLabel: { color: '#6B7280', fontSize: 12, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  collabRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
+  collabPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#EEF2F7',
+    marginRight: 6,
+    marginBottom: 6,
+  },
+  collabPillText: { color: '#334155', fontSize: 12, fontWeight: '600' },
+  collabPillMuted: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#E5E7EB',
+  },
+  collabPillMutedText: { color: '#475569', fontSize: 12, fontWeight: '700' },
+
+  // Footer / acciones
+  publicacionFooter: {
+    marginTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 10,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  verMasBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: '#0e0e2c',
+  },
+  verMasText: { color: '#FFFFFF', fontWeight: '700', fontSize: 13, letterSpacing: 0.2 },
+
+  /* ======== CONTENIDO GENÉRICO / BOTTOM NAV ======== */
+  content: { flex: 1, backgroundColor: '#fff', padding: 20 },
   bottomNav: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -82,12 +176,7 @@ titlePublicacion: {
     marginHorizontal: 4,
     top: -1,
   },
-  navIcon: {
-    width: 40,
-    height: 40,
-  },
-
-  // 🟡 Estilos añadidos para el botón de publicación animado
+  navIcon: { width: 40, height: 40 },
   publicarBoton: {
     backgroundColor: '#4F9DDE',
     borderRadius: 50,
@@ -101,35 +190,5 @@ titlePublicacion: {
     justifyContent: 'center',
     marginBottom: 10,
   },
-  publicarIcono: {
-    width: 40,
-    height: 40,
-  
-  },
-
-
-  cardImage: {
-  width: '100%',
-  height: 200,
-  borderRadius: 10,
-  marginBottom: 10,
-},
-
-
-verPdfButton: {
-  backgroundColor: '#4F9DDE',
-  padding: 8,
-  borderRadius: 6,
-  alignItems: 'center',
-  marginTop: 8,
-},
-verPdfText: {
-  color: '#fff',
-  fontWeight: 'bold',
-},
-
-
-
-
-
+  publicarIcono: { width: 40, height: 40 },
 });
