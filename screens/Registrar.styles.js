@@ -28,9 +28,9 @@ export const styles = StyleSheet.create({
   overlay: {
     flex: 1, // Hace que el contenedor crezca 
     paddingHorizontal: 30, // Aplica espacio a la izquierda y derecha 
-    paddingTop: 36, // Espacio interno superior, separa el contenido del borde superior del contenedor
+    paddingTop: 40, // Espacio interno superior, separa el contenido del borde superior del contenedor
     paddingBottom: 30, // Espacio interno inferior
-    backgroundColor: 'rgba(255, 255, 255, 0.54)', // blanco con transparencia
+    backgroundColor: 'rgba(255, 255, 255, 0.6)', // blanco con transparencia
     borderTopLeftRadius: 50,
     borderTopRightRadius: 50,
     shadowColor: '#000',
@@ -41,14 +41,14 @@ export const styles = StyleSheet.create({
 
   // Título principal "Create an Account" 
   title: {
-  fontSize: 30,                 // Tamaño del texto grande para destacar
+  fontSize: 32,                 // Tamaño del texto grande para destacar
   fontWeight: 'bold',          // Letra en negrita
   color: '#fff',               // Color blanco
   textAlign: 'right',          // Alinea el texto hacia la derecha dentro del componente Text
   alignSelf: 'flex-end',       // Posiciona el componente Text hacia el extremo derecho del contenedor
-  marginRight: 30,             // Separación desde el borde derecho
-  marginTop: 95,              // Espacio desde la parte superior
-  marginBottom: 60,            // Espacio debajo del título
+  marginRight: 20,             // Separación desde el borde derecho
+  marginTop: 80,              // Espacio desde la parte superior
+  marginBottom: 10,            // Espacio debajo del título
 },
 
   // Campos de entrada de texto
@@ -104,10 +104,11 @@ export const styles = StyleSheet.create({
   primaryButton: {
     backgroundColor: '#0e0e2c',
     borderRadius: 25,
-    height: 40,
+    height: 50,
     justifyContent: 'center',
     alignItems: 'center',
-    marginHorizontal: 38, 
+    marginBottom: 15,
+    elevation: 3,
   },
 
   // Texto del botón principal
@@ -115,6 +116,37 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+
+  // Texto "o regístrate con"
+  orText: {
+    textAlign: 'center',
+    marginVertical: 10,
+    color: '#333',
+  },
+
+  // Botón de Google
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 25,
+    height: 50,
+    elevation: 2,
+  },
+
+  // Logo de Google en el botón
+  googleLogo: {
+    width: 24,
+    height: 24,
+    marginRight: 10,
+  },
+
+  // Texto del botón de Google
+  googleText: {
+    fontSize: 16,
+    color: '#333',
   },
 
   // Etiquetas para cada campo

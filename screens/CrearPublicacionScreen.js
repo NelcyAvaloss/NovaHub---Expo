@@ -1,6 +1,6 @@
 import React, { useState, useContext } from 'react';
 import { PublicacionContext } from '../contexts/PublicacionContext';
-// import { supabase } from './supabase';  Desactivado porque ahora usamos almacenamiento local
+// import { supabase } from './supabase'; ❌ Desactivado porque ahora usamos almacenamiento local
 import * as FileSystem from 'expo-file-system';
 import {
   View,
@@ -28,7 +28,7 @@ export default function CrearPublicacionScreen({ navigation }) {
   const [descripcion, setDescripcion] = useState('');
   const [equipo, setEquipo] = useState('');
 
-  const { agregarPublicacion } = useContext(PublicacionContext); //  Contexto para guardar localmente
+  const { agregarPublicacion } = useContext(PublicacionContext); // ✅ Contexto para guardar localmente
 
   const categoriasConAreas = {
     'Ciencia y Tecnología': ['Desarrollo Web', 'Biotecnología', 'Robótica'],
@@ -40,6 +40,7 @@ export default function CrearPublicacionScreen({ navigation }) {
 
   const categorias = Object.keys(categoriasConAreas);
 
+  // ✅ Nueva función para guardar publicación de forma local
   const guardarPublicacionLocal = () => {
     if (!titulo || !autor || !descripcion || !categoriaSeleccionada || !areaSeleccionada || !pdfFile || !portadaUri) {
       Alert.alert('Campos incompletos', 'Por favor, completa todos los campos');
@@ -59,7 +60,7 @@ export default function CrearPublicacionScreen({ navigation }) {
       fecha: new Date().toISOString(),
     };
 
-    agregarPublicacion(nueva);
+    agregarPublicacion(nueva); // ✅ Guardar en contexto
     Alert.alert('Éxito', 'Publicación guardada localmente');
     navigation.navigate('Home');
   };
@@ -83,67 +84,87 @@ export default function CrearPublicacionScreen({ navigation }) {
     }
   };
 
-  // Asegúrate de tener esta línea arriba
-  const seleccionarPDF = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: 'application/pdf',
-        copyToCacheDirectory: true,
-      });
+   // Asegúrate de tener esta línea arriba
 
-      if (result.canceled || !result.assets?.length) return;
+const seleccionarPDF = async () => {
+  try {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: 'application/pdf',
+      copyToCacheDirectory: true,
+    });
 
-      const file = result.assets[0];
-      const destinationPath = FileSystem.documentDirectory + file.name;
+    if (result.canceled || !result.assets?.length) return;
 
-      await FileSystem.copyAsync({ from: file.uri, to: destinationPath });
+    const file = result.assets[0];
 
-      setPdfFile({
-        uri: destinationPath,
-        fileName: file.name,
-        type: file.mimeType || 'application/pdf',
-      });
+    // ✅ Nueva ruta accesible en documentDirectory
+    const destinationPath = FileSystem.documentDirectory + file.name;
 
-      Alert.alert('PDF seleccionado', file.name);
-    } catch (error) {
-      console.error('Error al seleccionar PDF:', error);
-      Alert.alert('Error', 'No se pudo seleccionar el archivo');
-    }
-  };
+    // ✅ Copiar el archivo a una ruta externa segura
+    await FileSystem.copyAsync({
+      from: file.uri,
+      to: destinationPath,
+    });
+
+    // ✅ Guardar el nuevo PDF con ruta segura
+    setPdfFile({
+      uri: destinationPath,
+      fileName: file.name,
+      type: file.mimeType || 'application/pdf',
+    });
+
+    Alert.alert('PDF seleccionado', file.name);
+  } catch (error) {
+    console.error('Error al seleccionar PDF:', error);
+    Alert.alert('Error', 'No se pudo seleccionar el archivo');
+  }
+};
+
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
       <ImageBackground source={require('../assets/FondoNovaHub.png')} style={styles.headerBackground}>
         <View style={styles.headerContent}>
           <TouchableOpacity onPress={() => navigation.navigate('Home')} style={styles.backButton}>
-            <Text style={{ fontSize: 40, color: '#fff', lineHeight: 40 }}>↩</Text>
+            <Text style={{ fontSize: 50, color: '#fff', lineHeight: 42 }}>↩</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Nueva Publicación</Text>
         </View>
       </ImageBackground>
 
+      <View style={styles.headerActions}>
+        <TouchableOpacity
+          style={styles.inputButton}
+          onPress={() => {
+            setTitulo('');
+            setAutor('');
+            setDescripcion('');
+            setEquipo('');
+            setCategoriaSeleccionada('');
+            setAreaSeleccionada('');
+            setPortadaUri(null);
+            setPdfFile(null);
+            setMostrarCategorias(false);
+            setMostrarAreas(false);
+          }}
+        >
+          <Text style={styles.inputLabel}>Eliminar edición</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.inputButton}
+          onPress={guardarPublicacionLocal} // ✅ Reemplazado por la función local
+        >
+          <Text style={styles.inputLabel}>Publicar</Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.inputGroup}>
         <Text style={styles.sectionTitle}>Título</Text>
-        <TextInput
-          style={[styles.input, { color: '#6B7280' }]}
-          value={titulo}
-          onChangeText={setTitulo}
-          placeholder="Título"
-          placeholderTextColor="#8c8c8dff"
-          cursorColor="#6B7280"
-          selectionColor="#6B7280"
-        />
+        <TextInput style={styles.input} value={titulo} onChangeText={setTitulo} placeholder="Título" />
 
         <Text style={styles.sectionTitle}>Autor</Text>
-        <TextInput
-          style={[styles.input, { color: '#6B7280' }]}
-          value={autor}
-          onChangeText={setAutor}
-          placeholder="Autor"
-          placeholderTextColor="#8c8c8dff"
-          cursorColor="#6B7280"
-          selectionColor="#6B7280"
-        />
+        <TextInput style={styles.input} value={autor} onChangeText={setAutor} placeholder="Autor" />
 
         <Text style={styles.sectionTitle}>Portada</Text>
         <TouchableOpacity style={styles.inputButton} onPress={seleccionarPortada}>
@@ -160,25 +181,18 @@ export default function CrearPublicacionScreen({ navigation }) {
 
         <Text style={styles.sectionTitle}>Descripción</Text>
         <TextInput
-          style={[styles.input, { color: '#6B7280' }]}
+          style={styles.input}
           value={descripcion}
           onChangeText={setDescripcion}
           placeholder="Descripción"
-          placeholderTextColor="#8c8c8dff"
-          cursorColor="#6B7280"
-          selectionColor="#6B7280"
-          // multiline
         />
 
         <Text style={styles.sectionTitle}>Equipo Colaborador</Text>
         <TextInput
-          style={[styles.input, { color: '#6B7280' }]}
+          style={styles.input}
           value={equipo}
           onChangeText={setEquipo}
           placeholder="Colaboradores"
-          placeholderTextColor="#8c8c8dff"
-          cursorColor="#6B7280"
-          selectionColor="#6B7280"
         />
 
         <Text style={styles.sectionTitle}>Categoría y Área</Text>
@@ -239,30 +253,6 @@ export default function CrearPublicacionScreen({ navigation }) {
             </TouchableOpacity>
           </View>
         )}
-
-        <View style={styles.headerActions}>
-          <TouchableOpacity
-            style={styles.inputButton}
-            onPress={() => {
-              setTitulo('');
-              setAutor('');
-              setDescripcion('');
-              setEquipo('');
-              setCategoriaSeleccionada('');
-              setAreaSeleccionada('');
-              setPortadaUri(null);
-              setPdfFile(null);
-              setMostrarCategorias(false);
-              setMostrarAreas(false);
-            }}
-          >
-            <Text style={styles.inputLabel}>Eliminar edición</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.inputButton} onPress={guardarPublicacionLocal}>
-            <Text style={styles.inputLabel}>Publicar</Text>
-          </TouchableOpacity>
-        </View>
       </View>
     </ScrollView>
   );

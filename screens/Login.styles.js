@@ -24,28 +24,28 @@ export const styles = StyleSheet.create({
 
   // Estilo del texto de bienvenida superior
   welcome: {
-    fontSize: 30,
+    fontSize: 34,
     fontWeight: 'bold',
     color: '#fff', // Blanco
     textAlign: 'right', // Alineado a la derecha
-    marginTop: 130, // Separación superior
-    marginRight: 30, // Separación derecha
-    marginBottom: 75, // Espacio con el contenido de abajo
+    marginTop: 80, // Separación superior
+    marginRight: 20, // Separación derecha
+    marginBottom: 40, // Espacio con el contenido de abajo
   },
 
   // Contenedor blanco curvado inferior // PORQUE SE ME OLVIDA 
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.54)', // Blanco semitransparente
+    backgroundColor: 'rgba(255, 255, 255, 0.6)', // Blanco semitransparente
     borderTopLeftRadius: 50, // Borde curvado izquierdo
     borderTopRightRadius: 50, // Borde curvado derecho
     paddingHorizontal: 30, // Márgenes internos laterales
     paddingTop: 40, // Espacio interno arriba
+    paddingBottom: 30, // Espacio interno abajo
     shadowColor: '#000', // Color de sombra
-    shadowOffset: { width: 0, height: -1 }, // Posición de la sombra
+    shadowOffset: { width: 0, height: -4 }, // Posición de la sombra
     shadowOpacity: 0.2, // Opacidad de la sombra
     shadowRadius: 8, // Difuminado de la sombra
-    marginHorizontal: 20,
   },
 
   // Título de la sección de login
@@ -61,7 +61,7 @@ export const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0e0e2c', 
+    color: '#0e0e2c', // Azul oscuro
     marginBottom: 6,
     marginLeft: 5,
   },
@@ -113,10 +113,10 @@ export const styles = StyleSheet.create({
   primaryButton: {
     backgroundColor: '#0e0e2c', // Azul oscuro
     borderRadius: 25,
-    height: 40,
+    height: 50,
     justifyContent: 'center',
     alignItems: 'center',
-    marginHorizontal: 65, // Márgenes laterales
+    marginHorizontal: 40, // Márgenes laterales
     elevation: 3,
   },
 
@@ -133,6 +133,7 @@ export const styles = StyleSheet.create({
     position: 'absolute',  // Se posiciona libremente sobre la pantalla
     top: 30,               // Distancia desde la parte superior
     left: 20,              // Distancia desde la izquierda
+    zIndex: 10,            // Se asegura de estar por encima del contenido
   },
 
 

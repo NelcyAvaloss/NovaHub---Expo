@@ -48,30 +48,40 @@ export default function RegistrarScreen() {
   // Crear usuario en supabase.auth
   const { data: authData, error: authError } = await supabase.auth.signUp({
   email: correo,
-  password: contrasena,
-  options: {
-    data: {
-      nombre: nombre,
-      tipo_usuario: tipoUsuario,
-      universidad: universidad
-    }
-  }
+  password: contrasena
 });
-//EL trigger en postgress para guardar los da
+
 
 
 // ✅ Mostrar mensaje y redirigir al login
 Alert.alert(
   'Registro exitoso',
-  'Revisa tu correo para confirmar tu cuenta. Luego inicia sesión.',
+  'Revisa tu correo para confirmar tu cuenta.',
   [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
 );
-if (authError) {
-  console.error('Error al crear usuario en auth:', authError.message);
-  Alert.alert('Error', 'Hubo un error en el registro. Por favor intenta nuevamente.');
-  return;
-}
-}
+
+
+  const userId = authData.user?.id;
+
+  const { error: dbError } = await supabase
+    .from('usuarios')
+    .insert([
+      {
+        id: userId,
+        nombre: nombre,
+        tipo_usuario: tipoUsuario,
+        universidad: universidad
+      }
+    ]);
+
+  if (dbError) {
+    Alert.alert('Error al guardar datos', dbError.message);
+    return;
+  }
+
+  Alert.alert('Registro exitoso', 'Tu cuenta ha sido creada con éxito.');
+  navigation.navigate('Login');
+};
 
   return (
     <View style={{ flex: 1 }}>
@@ -83,7 +93,7 @@ if (authError) {
         resizeMode="cover"
       >
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={{ fontSize: 50, color: '#fff', lineHeight: 45 }}>↩</Text>
+          <Text style={{ fontSize: 60, color: '#fff', lineHeight: 45 }}>↩</Text>
         </TouchableOpacity>
 
         <Text style={styles.title}>Create An{"\n"}Account</Text>

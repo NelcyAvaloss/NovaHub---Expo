@@ -1,3 +1,4 @@
+// CrearPublicacion.styles.js
 import { StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
@@ -7,34 +8,29 @@ export const styles = StyleSheet.create({
   },
 
   headerBackground: {
-  // tu fondo actual
-},
+    width: '100%',
+    height: 120,
+    resizeMode: 'cover',
+  },
 
-headerContent: {
-  height: 85,            
-  justifyContent: 'center',
-},
+  headerContent: {
+    marginTop: 45,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
 
-backButton: {
-  position: 'absolute',
-  left: 14,
-  zIndex: 2,
-  padding: 10,
-  marginTop: 20,
-},
+  backButton: {
+    marginRight: 10,
+  },
 
-headerTitle: {
-  position: 'absolute',
-  left: 0,
-  right: 0,
-  textAlign: 'center',
-  fontSize: 20,
-  color: '#fff',
-  fontWeight: 'bold',
-  paddingHorizontal: 56, // evita que el texto pase debajo del botón
-  marginTop: 20,
-},
-
+  headerTitle: {
+    fontSize: 22,
+    color: '#fff',
+    fontWeight: 'bold',
+    top: 12,
+    alignSelf: 'center'
+  },
 
   inputGroup: {
     padding: 20,
@@ -81,8 +77,6 @@ headerTitle: {
     backgroundColor: '#fafafa',
   },
 
-  
-
   imagePreview: {
     width: '100%',
     height: '100%',
@@ -114,12 +108,6 @@ headerTitle: {
     gap: 10,
     marginTop: 20,
   },
-
-headerActions: {
-  marginTop: 30,
-},
-
-
 });
 
 
