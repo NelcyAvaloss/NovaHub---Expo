@@ -22,7 +22,7 @@ export default function LoginScreen() {
 
   const navigation = useNavigation();
 
-  // 👉 refs para controlar el scroll cuando se enfoca el password
+  //  refs para controlar el scroll cuando se enfoca el password
   const scrollRef = useRef(null);
 
   const manejarLogin = async () => {
