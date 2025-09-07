@@ -24,7 +24,7 @@ export default function App() {
       <NavigationContainer>
         <StatusBar style="light" />
         <Stack.Navigator
-          initialRouteName="CrearPublicacion"
+          initialRouteName="Bienvenido"
           screenOptions={{ headerShown: false }}
         >
           <Stack.Screen name="Recuperacion" component={RecupPasswordScreen} />
@@ -38,5 +38,4 @@ export default function App() {
       </NavigationContainer>
     </PublicacionProvider>
   );
-}
- 
+};

@@ -22,7 +22,7 @@ export default function LoginScreen() {
 
   const navigation = useNavigation();
 
-  //  refs para controlar el scroll cuando se enfoca el password
+  // refs para controlar el scroll cuando se enfoca el password
   const scrollRef = useRef(null);
 
   const manejarLogin = async () => {
@@ -65,13 +65,13 @@ export default function LoginScreen() {
           <Text style={styles.welcome}>Welcome{"\n"}Back!</Text>
 
           <View style={styles.overlay}>
-            {/*  Hace que el layout se acomode con el teclado */}
+            {/* Hace que el layout se acomode con el teclado */}
             <KeyboardAvoidingView
               style={{ flex: 1 }}
               behavior={Platform.OS === 'ios' ? 'padding' : 'position'}
               keyboardVerticalOffset={0}
             >
-              {/*  Permite desplazarse cuando el teclado aparece */}
+              {/* Permite desplazarse cuando el teclado aparece */}
               <ScrollView
                 ref={scrollRef}
                 contentContainerStyle={{ paddingBottom: 60 }}
@@ -83,7 +83,7 @@ export default function LoginScreen() {
 
                 <Text style={styles.label}>Correo de usuario</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { color: '#333' }]}  
                   placeholder="Correo de usuario"
                   placeholderTextColor="#999"
                   value={usuario}
@@ -96,14 +96,17 @@ export default function LoginScreen() {
                 <Text style={styles.label}>Insertar Contraseña</Text>
                 <View style={styles.passwordContainer}>
                   <TextInput
-                    style={styles.passwordInput}
+                    style={[styles.passwordInput, { color: '#333' }]} 
                     placeholder="***********"
                     placeholderTextColor="#999"
                     value={contrasena}
                     onChangeText={setContrasena}
                     secureTextEntry={!verContrasena}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    textContentType="password"
                     returnKeyType="done"
-                    //  Al enfocar, baja el scroll para que quede visible
+                    // Al enfocar, baja el scroll para que quede visible
                     onFocus={() => {
                       setTimeout(() => {
                         scrollRef.current?.scrollToEnd({ animated: true });
