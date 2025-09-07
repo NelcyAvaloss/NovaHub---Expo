@@ -1,6 +1,6 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { PublicacionContext } from '../contexts/PublicacionContext';
-// import { supabase } from './supabase';  Desactivado porque ahora usamos almacenamiento local
+import { supabase } from './supabase';
 import * as FileSystem from 'expo-file-system';
 import {
   View,
@@ -24,11 +24,11 @@ export default function CrearPublicacionScreen({ navigation }) {
   const [areaSeleccionada, setAreaSeleccionada] = useState('');
   const [pdfFile, setPdfFile] = useState(null);
   const [titulo, setTitulo] = useState('');
-  const [autor, setAutor] = useState('');
+  const [autor, setAutor] = useState(''); // se llena desde Supabase
   const [descripcion, setDescripcion] = useState('');
   const [equipo, setEquipo] = useState('');
 
-  const { agregarPublicacion } = useContext(PublicacionContext); //  Contexto para guardar localmente
+  const { agregarPublicacion } = useContext(PublicacionContext);
 
   const categoriasConAreas = {
     'Ciencia y Tecnología': ['Desarrollo Web', 'Biotecnología', 'Robótica'],
@@ -37,34 +37,33 @@ export default function CrearPublicacionScreen({ navigation }) {
     Ingeniería: ['Civil', 'Eléctrica', 'Mecánica'],
     Educación: ['Educación Infantil', 'Pedagogía', 'Didáctica'],
   };
-
   const categorias = Object.keys(categoriasConAreas);
+  const areasDisponibles = categoriaSeleccionada ? categoriasConAreas[categoriaSeleccionada] : [];
 
-  const guardarPublicacionLocal = () => {
-    if (!titulo || !autor || !descripcion || !categoriaSeleccionada || !areaSeleccionada || !pdfFile || !portadaUri) {
-      Alert.alert('Campos incompletos', 'Por favor, completa todos los campos');
-      return;
-    }
+  // Cargar nombre del usuario desde user_metadata.nombre
+  useEffect(() => {
+    let unsub = null;
 
-    const nueva = {
-      id: Date.now(),
-      titulo,
-      autor,
-      descripcion,
-      equipo_colaborador: equipo,
-      categoria: categoriaSeleccionada,
-      area: areaSeleccionada,
-      portadaUri,
-      pdfUri: pdfFile.uri,
-      fecha: new Date().toISOString(),
+    const loadUser = async () => {
+      const { data, error } = await supabase.auth.getUser();
+      if (!error && data?.user) {
+        const nom = data.user.user_metadata?.nombre ?? '';
+        if (nom) setAutor(nom);
+      }
     };
 
-    agregarPublicacion(nueva);
-    Alert.alert('Éxito', 'Publicación guardada localmente');
-    navigation.navigate('Home');
-  };
+    loadUser();
 
-  const areasDisponibles = categoriaSeleccionada ? categoriasConAreas[categoriaSeleccionada] : [];
+    unsub = supabase.auth.onAuthStateChange((_event, session) => {
+      const nom = session?.user?.user_metadata?.nombre ?? '';
+      if (nom) setAutor(nom);
+      else setAutor('');
+    }).data.subscription;
+
+    return () => {
+      if (unsub) unsub.unsubscribe();
+    };
+  }, []);
 
   const seleccionarPortada = async () => {
     const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -72,30 +71,25 @@ export default function CrearPublicacionScreen({ navigation }) {
       Alert.alert('Permiso denegado', 'Se necesita permiso para acceder a las imágenes');
       return;
     }
-
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 1,
     });
-
     if (!result.canceled && result.assets.length > 0) {
       setPortadaUri(result.assets[0].uri);
     }
   };
 
-  // Asegúrate de tener esta línea arriba
   const seleccionarPDF = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: 'application/pdf',
         copyToCacheDirectory: true,
       });
-
       if (result.canceled || !result.assets?.length) return;
 
       const file = result.assets[0];
       const destinationPath = FileSystem.documentDirectory + file.name;
-
       await FileSystem.copyAsync({ from: file.uri, to: destinationPath });
 
       setPdfFile({
@@ -111,6 +105,30 @@ export default function CrearPublicacionScreen({ navigation }) {
     }
   };
 
+  const guardarPublicacionLocal = () => {
+    if (!titulo || !autor || !descripcion || !categoriaSeleccionada || !areaSeleccionada || !pdfFile || !portadaUri) {
+      Alert.alert('Campos incompletos', 'Por favor, completa todos los campos');
+      return;
+    }
+
+    const nueva = {
+      id: Date.now(),
+      titulo,
+      autor, // viene del usuario
+      descripcion,
+      equipo_colaborador: equipo,
+      categoria: categoriaSeleccionada,
+      area: areaSeleccionada,
+      portadaUri,
+      pdfUri: pdfFile.uri,
+      fecha: new Date().toISOString(),
+    };
+
+    agregarPublicacion(nueva);
+    Alert.alert('Éxito', 'Publicación guardada localmente');
+    navigation.navigate('Home');
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
       <ImageBackground source={require('../assets/FondoNovaHub.png')} style={styles.headerBackground}>
@@ -123,6 +141,18 @@ export default function CrearPublicacionScreen({ navigation }) {
       </ImageBackground>
 
       <View style={styles.inputGroup}>
+
+         {/* Autor: solo lectura */}
+        <Text style={styles.sectionTitle}>Autor</Text>
+        <TextInput
+          style={[styles.input, { color: '#6B7280', opacity: 0.9 }]}
+          value={autor}
+          editable={false}
+          selectTextOnFocus={false}
+          placeholder="(se completa automáticamente)"
+          placeholderTextColor="#8c8c8dff"
+        />
+
         <Text style={styles.sectionTitle}>Título</Text>
         <TextInput
           style={[styles.input, { color: '#6B7280' }]}
@@ -133,17 +163,7 @@ export default function CrearPublicacionScreen({ navigation }) {
           cursorColor="#6B7280"
           selectionColor="#6B7280"
         />
-
-        <Text style={styles.sectionTitle}>Autor</Text>
-        <TextInput
-          style={[styles.input, { color: '#6B7280' }]}
-          value={autor}
-          onChangeText={setAutor}
-          placeholder="Autor"
-          placeholderTextColor="#8c8c8dff"
-          cursorColor="#6B7280"
-          selectionColor="#6B7280"
-        />
+   
 
         <Text style={styles.sectionTitle}>Portada</Text>
         <TouchableOpacity style={styles.inputButton} onPress={seleccionarPortada}>
@@ -167,7 +187,6 @@ export default function CrearPublicacionScreen({ navigation }) {
           placeholderTextColor="#8c8c8dff"
           cursorColor="#6B7280"
           selectionColor="#6B7280"
-          // multiline
         />
 
         <Text style={styles.sectionTitle}>Equipo Colaborador</Text>
