@@ -18,6 +18,12 @@ export default function RecupPasswordScreen({ navigation }) {
   const inputRef = useRef(null);
   const disabled = email.trim().length === 0;
 
+  const handleSendLink = () => {
+    // aquí podrías llamar a tu backend para enviar el correo de recuperación
+    // luego rediriges a la pantalla de confirmación:
+    navigation.navigate("ConfirmRecup", { email });
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.flex}
@@ -60,7 +66,7 @@ export default function RecupPasswordScreen({ navigation }) {
             Ingresa el correo asociado a tu cuenta
           </Text>
 
-          {/* INPUT (el wrapper es presionable y fuerza el focus del TextInput) */}
+          {/* INPUT */}
           <Pressable
             onPress={() => inputRef.current?.focus()}
             style={[styles.inputWrapper, focused && styles.inputWrapperFocused]}
@@ -82,14 +88,13 @@ export default function RecupPasswordScreen({ navigation }) {
               onBlur={() => setFocused(false)}
               returnKeyType="done"
               blurOnSubmit={false}
-              onSubmitEditing={() => {}}
               textContentType="emailAddress"
             />
           </Pressable>
 
           {/* BOTÓN */}
           <Pressable
-            onPress={() => {}}
+            onPress={handleSendLink}
             disabled={disabled}
             android_ripple={{ color: "rgba(255,255,255,0.15)" }}
             style={({ pressed }) => [
@@ -98,7 +103,12 @@ export default function RecupPasswordScreen({ navigation }) {
               pressed && !disabled && styles.pressed,
             ]}
           >
-            <Text style={[styles.primaryBtnText, disabled && styles.primaryBtnTextDisabled]}>
+            <Text
+              style={[
+                styles.primaryBtnText,
+                disabled && styles.primaryBtnTextDisabled,
+              ]}
+            >
               Enviar enlace
             </Text>
           </Pressable>
@@ -108,7 +118,9 @@ export default function RecupPasswordScreen({ navigation }) {
             <Text style={styles.loginHint}>¿Ya recordaste tu contraseña?</Text>
             <Pressable onPress={() => navigation.navigate("Login")}>
               {({ pressed }) => (
-                <Text style={[styles.loginLink, pressed && styles.loginLinkPressed]}>
+                <Text
+                  style={[styles.loginLink, pressed && styles.loginLinkPressed]}
+                >
                   Iniciar sesión
                 </Text>
               )}

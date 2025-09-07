@@ -11,9 +11,10 @@ import LoginScreen from './screens/LoginScreen';
 import HomeScreen from './screens/HomeScreen';
 import CrearPublicacionScreen from './screens/CrearPublicacionScreen';
 import RecupPasswordScreen from './screens/RecupPasswordScreen';
+import ConfirmRecupScreen from './screens/ConfirmRecupScreen';
 import DetallePublicacionScreen from './screens/DetallePublicacionScreen';
 
-// Contexto (si lo usas)
+
 import { PublicacionProvider } from './contexts/PublicacionContext';
 
 const Stack = createNativeStackNavigator();
@@ -27,10 +28,12 @@ export default function App() {
           initialRouteName="Bienvenido"
           screenOptions={{ headerShown: false }}
         >
-          <Stack.Screen name="Recuperacion" component={RecupPasswordScreen} />
+
           <Stack.Screen name="Bienvenido" component={BienvenidoScreen} />
           <Stack.Screen name="Registrar" component={RegistrarScreen} />
           <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Recuperacion" component={RecupPasswordScreen} />
+          <Stack.Screen name='ConfirmRecup' component={ConfirmRecupScreen} />
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="CrearPublicacion" component={CrearPublicacionScreen}/>
           <Stack.Screen name="DetallePublicacion" component={DetallePublicacionScreen}/>
