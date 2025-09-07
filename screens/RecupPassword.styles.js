@@ -15,29 +15,29 @@ export default StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.25)",
   },
 
-  //Icono que me devuelve al login
+  // Icono que me devuelve al login
   backButton: {
-  position: "absolute",
-  top: 30,
-  left: 16,
-  width: 55,
-  height: 55,
-  alignItems: "center",
-  justifyContent: "center",
-  zIndex: 10, // sobre el overlay
-},
-backIcon: {
-  fontSize: 45,   // ajústalo a 40–60 si lo quieres más grande
-  lineHeight: 30,
-  color: "#fff",
-},
+    position: "absolute",
+    top: 30,
+    left: 16,
+    width: 55,
+    height: 55,
+    alignItems: "center",
+    justifyContent: "center",
+    // Debajo de la tarjeta para no tapar el input
+    zIndex: 3,
+    elevation: 3,
+  },
+  backIcon: {
+    fontSize: 45,
+    lineHeight: 30,
+    color: "#fff",
+  },
 
-
-
-  //Header fijo arriba para que no desplace al card
+  // Header fijo arriba
   header: {
     position: "absolute",
-    top: 55,           // valor de tu margen original
+    top: 55,
     left: 0,
     right: 0,
     width: "100%",
@@ -55,8 +55,11 @@ backIcon: {
     letterSpacing: 0.5,
   },
 
-  // El card ya quedará centrado gracias al padre (bg)
+  // Tarjeta centrada sobre todo
   card: {
+    position: "relative",  // hace efectivo zIndex en Android
+    zIndex: 10,            // por encima del header y backButton
+    elevation: 10,         // prioridad táctil en Android
     width: "88%",
     backgroundColor: "rgba(47, 51, 61, 0.72)",
     borderRadius: 18,
@@ -66,7 +69,6 @@ backIcon: {
     shadowOpacity: 0.35,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
   },
 
   cardTitle: {

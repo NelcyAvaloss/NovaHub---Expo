@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   View,
   Text,
@@ -8,13 +8,14 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
-  TouchableOpacity, 
+  TouchableOpacity,
 } from "react-native";
 import styles from "./RecupPassword.styles";
 
-export default function RecupPasswordScreen({ navigation }) { //recibe navigation
+export default function RecupPasswordScreen({ navigation }) {
   const [email, setEmail] = useState("");
   const [focused, setFocused] = useState(false);
+  const inputRef = useRef(null);
   const disabled = email.trim().length === 0;
 
   return (
@@ -26,21 +27,23 @@ export default function RecupPasswordScreen({ navigation }) { //recibe navigatio
         source={require("../assets/FondoNovaHub.png")}
         style={styles.bg}
         resizeMode="cover"
+        pointerEvents="box-none"
       >
-        {/* overlay debajo de todo */}
-        <View style={styles.overlay} />
+        {/* overlay decorativo sin eventos */}
+        <View style={styles.overlay} pointerEvents="none" />
 
-        {/* Botón volver → Login  */}
+        {/* Botón volver */}
         <TouchableOpacity
           onPress={() => navigation.navigate("Login")}
           style={styles.backButton}
           activeOpacity={0.7}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
           <Text style={styles.backIcon}>↩</Text>
         </TouchableOpacity>
 
-        {/* Header con logo y marca */}
-        <View style={styles.header}>
+        {/* Header totalmente inerte */}
+        <View style={styles.header} pointerEvents="none">
           <Image
             source={require("../assets/icon.png")}
             style={styles.logo}
@@ -57,12 +60,16 @@ export default function RecupPasswordScreen({ navigation }) { //recibe navigatio
             Ingresa el correo asociado a tu cuenta
           </Text>
 
-          {/* INPUT */}
-          <View style={[styles.inputWrapper, focused && styles.inputWrapperFocused]}>
+          {/* INPUT (el wrapper es presionable y fuerza el focus del TextInput) */}
+          <Pressable
+            onPress={() => inputRef.current?.focus()}
+            style={[styles.inputWrapper, focused && styles.inputWrapperFocused]}
+          >
             <View style={styles.iconBox}>
               <Text style={styles.iconText}>✉️</Text>
             </View>
             <TextInput
+              ref={inputRef}
               style={styles.input}
               placeholder="Correo Electrónico"
               placeholderTextColor="#AAB1C1"
@@ -74,8 +81,11 @@ export default function RecupPasswordScreen({ navigation }) { //recibe navigatio
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
               returnKeyType="done"
+              blurOnSubmit={false}
+              onSubmitEditing={() => {}}
+              textContentType="emailAddress"
             />
-          </View>
+          </Pressable>
 
           {/* BOTÓN */}
           <Pressable
@@ -96,7 +106,7 @@ export default function RecupPasswordScreen({ navigation }) { //recibe navigatio
           {/* Link */}
           <View style={styles.loginRow}>
             <Text style={styles.loginHint}>¿Ya recordaste tu contraseña?</Text>
-            <Pressable onPress={() => {}}>
+            <Pressable onPress={() => navigation.navigate("Login")}>
               {({ pressed }) => (
                 <Text style={[styles.loginLink, pressed && styles.loginLinkPressed]}>
                   Iniciar sesión
