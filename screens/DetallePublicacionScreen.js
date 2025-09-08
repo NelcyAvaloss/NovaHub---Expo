@@ -16,6 +16,7 @@ import Pdf from 'react-native-pdf';
 import { WebView } from 'react-native-webview';
 import * as IntentLauncher from 'expo-intent-launcher';
 import styles from './DetallePublicacion.styles';
+import { supabase } from './supabase';
 
 export default function DetallePublicacionScreen({ route, navigation }) {
   const insets = useSafeAreaInsets();
@@ -40,6 +41,7 @@ export default function DetallePublicacionScreen({ route, navigation }) {
   //    { commentId, replyId } -> apunta a la respuesta a la que queremos responder
   const [replyToChild, setReplyToChild] = useState(null);
   const [childReplyText, setChildReplyText] = useState('');
+  const [usuarioActual, setUsuarioActual] = useState(null);
   const childReplyInputRef = useRef(null);
 
   //  Altura dinámica del teclado para padding inferior (evita franja blanca)
@@ -49,11 +51,63 @@ export default function DetallePublicacionScreen({ route, navigation }) {
       setKbPadding(e.endCoordinates?.height ?? 0)
     );
     const onHide = Keyboard.addListener('keyboardDidHide', () => setKbPadding(0));
-    return () => { onShow.remove(); onHide.remove(); };
+
+    obtenerComentarios();
+
+    //Suscribir a cambios en Comentarios
+  const comentarioSub = supabase
+      .channel('Comentarios')
+      .on('postgres_changes', 
+        //Subscribirse a la vista que incluye el nombre del usuario
+        { event: '*', schema: 'public', table: 'Comentarios' },
+        payload => {
+          console.log('Cambio en Comentarios:', payload);
+          obtenerComentarios();
+        }
+      )
+      .subscribe((status) => {
+        console.log('Estado de suscripción Comentarios:', status);
+      });
+    //Suscribir a cambios en Respuestas
+    const respuestaSub = supabase
+      .channel('Respuestas')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'Respuestas' },
+        payload => {
+          console.log('Cambio en Respuestas:', payload);
+          obtenerComentarios();
+        }
+      )
+      .subscribe((status) => {
+        console.log('Estado de suscripción Respuestas:', status);
+      });
+    //Suscribir a cambios en Sub_Respuestas
+    const subRespuestaSub = supabase
+      .channel('Sub_Respuestas')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'Sub_Respuestas' },
+        payload => {
+          console.log('Cambio en Sub_Respuestas:', payload);
+          obtenerComentarios();
+        }
+      )
+      .subscribe((status) => {
+        console.log('Estado de suscripción Sub_Respuestas:', status);
+      });
+
+    return () => {
+      onShow.remove();
+      onHide.remove();
+      supabase.removeChannel(comentarioSub);
+      supabase.removeChannel(respuestaSub);
+      supabase.removeChannel(subRespuestaSub);
+    };
+
   }, []);
 
   // Campos esperados
   const {
+    id,
     portadaUri,
     pdfUri,
     titulo,
@@ -98,19 +152,103 @@ export default function DetallePublicacionScreen({ route, navigation }) {
     }
   }, [pdfUri]);
 
+    const obtenerComentarios = async () => {
+
+      try {
+        const { data, error } = await supabase
+          .from('Comentarios')
+          .select(`
+            id,
+            contenido,
+            created_at,
+            usuario:usuarios ( nombre, id ),
+            respuestas:Respuestas (
+              id,
+              contenido,
+              created_at,
+              usuario:usuarios ( nombre, id ),
+              sub_respuestas:Sub_Respuestas (
+                id,
+                contenido,
+                created_at,
+                usuario:usuarios ( nombre, id)
+              )
+            )`)
+          .eq('id_publicacion', id)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        // Obtener usuario actual y guardarlo en estado
+        const usuario = await obtenerUsuarioActual();
+        setUsuarioActual(usuario);
+        // Transformar data al formato esperado por el componente
+        console.log('Usuario actual:', usuarioActual);
+        const comentariosFormateados = data.map(c => ({
+          id: c.id,
+          text: c.contenido,
+          date: c.created_at,
+          //Si el id del usuario es el mismo que el del usuario actual, mostrar "Tú" como autor
+          author: c.usuario.id === usuario.id ? 'Tú' : c.usuario.nombre,
+          replies: c.respuestas.map(r => ({
+            id: r.id,
+            text: r.contenido,
+            date: r.created_at,
+            author: r.usuario.id === usuario.id ? 'Tú' : r.usuario.nombre,
+            childReplies: r.sub_respuestas.map(sr => ({
+              id: sr.id,
+              text: sr.contenido,
+              date: sr.created_at,
+              author: sr.usuario.id === usuario.id ? 'Tú' : sr.usuario.nombre,
+            })),
+          })),
+        }));
+        setComments(comentariosFormateados);
+      } catch (error) {
+        console.error('Error al obtener comentarios:', error);
+      }
+    };
+  
+    const obtenerUsuarioActual = async () => {
+      const { data } = await supabase.auth.getUser();
+      return { id: data.user.id, nombre: data.user.user_metadata.full_name};
+    };
+
   //  Agregar comentario
-  const handleAddComment = useCallback(() => {
+  const handleAddComment = useCallback(async () => {
     const text = newComment.trim();
     if (!text) return;
+    Alert.alert('Agregando comentario');
+    try {
+    const usuario = await obtenerUsuarioActual();
+    console.log('Usuario actual:', usuario);
+    const {data, error} = await supabase.from('Comentarios').insert([
+      {
+        id_publicacion: id,
+        id_usuario: usuario.id,
+        contenido: text
+      }]
+    ).select(`id, contenido, created_at, usuario:usuarios ( nombre )`);
+    console.log(data);
+
+    if (error) {
+      Alert.alert('Error', error.message || 'No se pudo agregar el comentario.');
+      return;
+    }
+
+    Alert.alert('Comentario agregado');
     const nuevo = {
-      id: Date.now(),
-      author: 'Tú',
-      text,
-      date: new Date().toISOString(),
-      replies: [],          // primer nivel
+      id: data[0].id,
+      text: data[0].contenido,
+      date: data[0].created_at,
+      author: data[0].usuario.nombre,
+      replies: [],
     };
     setComments(prev => [nuevo, ...prev]);
     setNewComment('');
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo agregar el comentario. Inténtalo de nuevo.');
+      console.error('Error al agregar comentario:', error);
+    }
   }, [newComment]);
 
   //  Iniciar respuesta (primer nivel)
@@ -126,9 +264,24 @@ export default function DetallePublicacionScreen({ route, navigation }) {
   }, []);
 
   //  Enviar respuesta (primer nivel)
-  const handleSendReply = useCallback(() => {
+  const handleSendReply = useCallback(async () => {
     const text = replyText.trim();
     if (!text || !replyTo) return;
+
+    try {
+      const usuario = await obtenerUsuarioActual();
+      const {data, error} = await supabase.from('Respuestas').insert([
+        {
+          id_comentario: replyTo,
+          id_usuario: usuario.id,
+          contenido: text
+        }]
+      ).select(`id, contenido, created_at, usuario:usuarios ( nombre )`);
+      if (error) {
+        Alert.alert('Error', error.message || 'No se pudo agregar la respuesta.');
+        return;
+      }
+
     setComments(prev =>
       prev.map(c =>
         c.id === replyTo
@@ -137,11 +290,11 @@ export default function DetallePublicacionScreen({ route, navigation }) {
               replies: [
                 ...c.replies,
                 {
-                  id: `${c.id}-${Date.now()}`,
-                  author: 'Tú',
-                  text,
-                  date: new Date().toISOString(),
-                  childReplies: [],  // segundo nivel
+                  id: data[0].id,
+                  text: data[0].contenido,
+                  date: data[0].created_at,
+                  author: data[0].usuario.nombre,
+                  childReplies: [],
                 },
               ],
             }
@@ -150,6 +303,10 @@ export default function DetallePublicacionScreen({ route, navigation }) {
     );
     setReplyText('');
     setReplyTo(null);
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo agregar la respuesta. Inténtalo de nuevo.');
+      console.error('Error al agregar respuesta:', error);
+    }
   }, [replyText, replyTo]);
 
   //  Iniciar respuesta a una respuesta (segundo nivel)
@@ -165,9 +322,23 @@ export default function DetallePublicacionScreen({ route, navigation }) {
   }, []);
 
   //  Enviar respuesta a la respuesta (segundo nivel)
-  const handleSendChildReply = useCallback(() => {
+  const handleSendChildReply = useCallback(async() => {
     const text = childReplyText.trim();
     if (!text || !replyToChild) return;
+    try{
+      const usuario = await obtenerUsuarioActual();
+      const {data, error} = await supabase.from('Sub_Respuestas').insert([
+        {
+          id_respuesta: replyToChild.replyId,
+          id_usuario: usuario.id,
+          contenido: text
+        }]
+      ).select(`id, contenido, created_at, usuario:usuarios ( nombre )`);
+      if (error) {
+        Alert.alert('Error', error.message || 'No se pudo agregar la respuesta.');
+        return;
+      }
+
     setComments(prev =>
       prev.map(c => {
         if (c.id !== replyToChild.commentId) return c;
@@ -194,6 +365,10 @@ export default function DetallePublicacionScreen({ route, navigation }) {
     );
     setChildReplyText('');
     setReplyToChild(null);
+  } catch (error) {
+    Alert.alert('Error', 'No se pudo agregar la respuesta. Inténtalo de nuevo.');
+    console.error('Error al agregar respuesta a la respuesta:', error);
+  }
   }, [childReplyText, replyToChild]);
 
   if (!publicacion) {
