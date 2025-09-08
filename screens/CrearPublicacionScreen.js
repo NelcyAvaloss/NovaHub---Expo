@@ -207,7 +207,7 @@ export default function CrearPublicacionScreen({ navigation }) {
 
     if (error) throw error;
     console.log('PDF subido:', data);
-    const { data: publicUrlData } = await supabase.storage.from('pdfs').getPublicUrl(nombreArchivo);
+    const { data: publicUrlData } = await supabase.storage.from('documentos').getPublicUrl(nombreArchivo);
     console.log('URL pública del PDF:', publicUrlData);
     return publicUrlData.publicUrl;
     } catch (error) {
