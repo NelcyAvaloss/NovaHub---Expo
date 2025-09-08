@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import styles from "./RecupPassword.styles";
+import { supabase } from "./supabase";
 
 export default function RecupPasswordScreen({ navigation }) {
   const [email, setEmail] = useState("");
@@ -18,9 +19,19 @@ export default function RecupPasswordScreen({ navigation }) {
   const inputRef = useRef(null);
   const disabled = email.trim().length === 0;
 
-  const handleSendLink = () => {
-    // aquí podrías llamar a tu backend para enviar el correo de recuperación
-    // luego rediriges a la pantalla de confirmación:
+  const handleSendLink = async () => {
+    const  {error} = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: false}
+    });
+
+    if (error) {
+      Alert.alert("Error", error.message);
+      console.log(error);
+      return;
+    }
+    
     navigation.navigate("ConfirmRecup", { email });
   };
 
