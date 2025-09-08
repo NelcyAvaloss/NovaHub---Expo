@@ -13,7 +13,6 @@ import {
 import { styles } from './Home.styles';
 import { supabase } from './supabase';
 
-
 const likeIcon = require('../assets/IconoLike.png');
 const likeIconActive = require('../assets/Icono_LikeActivo.png');
 const dislikeIcon = require('../assets/IconoDislike.png');
@@ -21,6 +20,7 @@ const dislikeIconActive = require('../assets/Icono_DislikeActivo.png');
 
 export default function HomeScreen({ navigation }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const flatListRef = useRef(null); // 👈 ref para hacer scroll al encabezado
 
   const [publicaciones, setPublicaciones] = useState([]);
   // votesMap[pubId] = { likes, dislikes, myVote }
@@ -274,7 +274,7 @@ export default function HomeScreen({ navigation }) {
               <Image source={{ uri: item.portadaUri }} style={styles.publicacionImagen} />
             )}
 
-            {/* Chips/meta (sin píldora de score) */}
+            {/* Chips/meta */}
             <View style={styles.tagsRow}>
               {!!item.categoria && <Text style={styles.tagChip}>#{item.categoria}</Text>}
               {!!item.area && <Text style={styles.tagChip}>#{item.area}</Text>}
@@ -380,11 +380,12 @@ export default function HomeScreen({ navigation }) {
       {/* Feed en el MISMO ORDEN original */}
       <View style={styles.feedContainer}>
         <FlatList
+          ref={flatListRef}  // 👈 ref para poder scrollear al top
           data={publicaciones}
           keyExtractor={(item, i) => String(item?.id ?? i)}
           contentContainerStyle={styles.listContent}
           renderItem={renderItem}
-          extraData={votesMap}   
+          extraData={votesMap}
           ListEmptyComponent={
             <View style={{ alignItems: 'center', marginTop: 24 }}>
               <Text style={{ color: '#6B7280' }}>Aún no hay publicaciones</Text>
@@ -396,7 +397,16 @@ export default function HomeScreen({ navigation }) {
 
       {/* Bottom Nav */}
       <View style={styles.bottomNav}>
-        <TouchableOpacity>
+        {/* HOME: navegar y scrollear al encabezado */}
+        <TouchableOpacity
+          onPress={() => {
+            navigation.navigate('Home');
+            // asegurar el scroll al top
+            requestAnimationFrame(() => {
+              flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+            });
+          }}
+        >
           <Image source={require('../assets/Nav_Home.png')} style={styles.navIcon} />
         </TouchableOpacity>
 

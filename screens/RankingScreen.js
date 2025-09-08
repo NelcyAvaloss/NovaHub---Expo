@@ -1,4 +1,3 @@
-// screens/RankingScreen.js
 import React, { useMemo, useRef, useEffect } from 'react';
 import {
   View,
