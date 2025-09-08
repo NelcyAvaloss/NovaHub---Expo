@@ -105,29 +105,115 @@ export default function CrearPublicacionScreen({ navigation }) {
     }
   };
 
-  const guardarPublicacionLocal = () => {
+    const guardarPublicacion = async () => {
+
     if (!titulo || !autor || !descripcion || !categoriaSeleccionada || !areaSeleccionada || !pdfFile || !portadaUri) {
       Alert.alert('Campos incompletos', 'Por favor, completa todos los campos');
       return;
     }
+    try{
+      const idAutor = await obtenerIdUsuario();
+      if (!idAutor) throw new Error("Usuario no autenticado");
+      const urlPortada = await subirPortada(portadaUri);
+      const urlPDF = await subirPDF(pdfFile.uri);
+      //Obtiene el id del usuario actual en supabase
 
     const nueva = {
       id: Date.now(),
       titulo,
-      autor, // viene del usuario
+      id_autor: idAutor,
       descripcion,
       equipo_colaborador: equipo,
       categoria: categoriaSeleccionada,
       area: areaSeleccionada,
-      portadaUri,
-      pdfUri: pdfFile.uri,
-      fecha: new Date().toISOString(),
+      portadaUri: urlPortada,
+      pdfUri: urlPDF,
     };
 
-    agregarPublicacion(nueva);
-    Alert.alert('Éxito', 'Publicación guardada localmente');
+    //Subirla a supabase
+    const { data, error } = await supabase.from('Publicaciones').insert([nueva]);
+
+    if (error) {
+      Alert.alert('Error al guardar publicación', error.message);
+      return;
+    }
+    Alert.alert('Éxito', 'Publicación guardada correctamente');
     navigation.navigate('Home');
+  }
+  catch(error){
+    console.error("Error al guardar publicación:", error);
+    return;
+  }
+
   };
+    const obtenerIdUsuario = async () => {
+    const { data, error } = await supabase.auth.getUser();
+
+      if (error) {
+        console.error("Error obteniendo usuario:", error.message);
+      } else if (data.user) {
+        return data.user.id;
+      }
+  }
+  const subirPortada = async (uriPortada) => {
+    try {
+      // Subir a supabase, al bucket 'portadas'
+      console.log("Iniciando subida de portada...");
+    const nombreArchivo = `portadas/${Date.now()}.jpeg`;
+
+    // Leer el archivo como base64
+    const base64 = await FileSystem.readAsStringAsync(uriPortada, { encoding: FileSystem.EncodingType.Base64 });
+    // Convertir base64 a array de bytes
+    const byteArray = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+
+    // Subir a supabase
+    const { data, error } = await supabase.storage
+      .from('portadas')
+      .upload(nombreArchivo, byteArray, {
+        cacheControl: '3600',
+        contentType: 'image/jpeg',
+        upsert: false,
+      });
+
+        if(error) throw error;
+
+        console.log("Portada subida:", data);
+        const {data: publicUrlData} = await supabase.storage.from('portadas').getPublicUrl(nombreArchivo);
+        console.log("URL pública de la portada:", publicUrlData);
+        return publicUrlData.publicUrl;
+    } catch (error) {
+      Alert.alert('Error al subir portada', error.message);
+    }
+
+  };
+  
+  const subirPDF = async (pdfUri) => {
+  try {
+    const nombreArchivo = `pdfs/${Date.now()}.pdf`;
+
+    // Leer el archivo PDF como base64
+    const base64 = await FileSystem.readAsStringAsync(pdfUri, { encoding: FileSystem.EncodingType.Base64 });
+    // Convertir base64 a array de bytes
+    const byteArray = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+
+    // Subir a Supabase
+    const { data, error } = await supabase.storage
+      .from('documentos')
+      .upload(nombreArchivo, byteArray, {
+        cacheControl: '3600',
+        contentType: 'application/pdf',
+        upsert: false,
+      });
+
+    if (error) throw error;
+    console.log('PDF subido:', data);
+    const { data: publicUrlData } = await supabase.storage.from('pdfs').getPublicUrl(nombreArchivo);
+    console.log('URL pública del PDF:', publicUrlData);
+    return publicUrlData.publicUrl;
+    } catch (error) {
+    Alert.alert('Error al subir PDF', error.message);
+  }
+};
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
@@ -278,7 +364,7 @@ export default function CrearPublicacionScreen({ navigation }) {
             <Text style={styles.inputLabel}>Eliminar edición</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.inputButton} onPress={guardarPublicacionLocal}>
+          <TouchableOpacity style={styles.inputButton} onPress={guardarPublicacion}>
             <Text style={styles.inputLabel}>Publicar</Text>
           </TouchableOpacity>
         </View>
