@@ -191,4 +191,62 @@ export const styles = StyleSheet.create({
     marginBottom: 10,
   },
   publicarIcono: { width: 40, height: 40 },
+  
+
+  // --- NUEVOS ESTILOS PARA VOTOS / RANKING ---
+  voteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex:1,
+  },
+
+  voteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(178, 181, 185, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(150,160,180,0.25)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+
+  voteBtnActive: {
+    borderColor: '#58a6ff',
+    backgroundColor: 'rgba(88,166,255,0.12)',
+  },
+
+  voteBtnActiveDown: {
+    borderColor: '#ff9f80',
+    backgroundColor: 'rgba(255,159,128,0.12)',
+  },
+
+  // Usamos imagen en lugar de emoji/texto
+  voteImage: {
+    width: 18,
+    height: 18,
+    marginRight: 6,
+  },
+
+  voteCount: {
+    color: '#373738ff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
+  scorePill: {
+    marginLeft: 'auto',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(150,160,180,0.25)',
+  },
+
+  scorePillText: {
+    color: '#EAF2FF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
 });

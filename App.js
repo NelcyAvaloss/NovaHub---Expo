@@ -13,6 +13,7 @@ import CrearPublicacionScreen from './screens/CrearPublicacionScreen';
 import RecupPasswordScreen from './screens/RecupPasswordScreen';
 import ConfirmRecupScreen from './screens/ConfirmRecupScreen';
 import DetallePublicacionScreen from './screens/DetallePublicacionScreen';
+import RankingScreen from './screens/RankingScreen';
 
 
 import { PublicacionProvider } from './contexts/PublicacionContext';
@@ -25,7 +26,7 @@ export default function App() {
       <NavigationContainer>
         <StatusBar style="light" />
         <Stack.Navigator
-          initialRouteName="Bienvenido"
+          initialRouteName="Login"
           screenOptions={{ headerShown: false }}
         >
 
@@ -37,6 +38,7 @@ export default function App() {
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="CrearPublicacion" component={CrearPublicacionScreen}/>
           <Stack.Screen name="DetallePublicacion" component={DetallePublicacionScreen}/>
+          <Stack.Screen name='Ranking' component={RankingScreen}/>
         </Stack.Navigator>
       </NavigationContainer>
     </PublicacionProvider>
