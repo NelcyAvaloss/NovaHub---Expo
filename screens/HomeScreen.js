@@ -44,27 +44,25 @@ export default function HomeScreen({ navigation }) {
     [navigation]
   );
   const obtenerPublicaciones = async () => {
-
-    // ordenar por fecha descendente
-    // Limitar a 100 resultados
-    // uno de los campos es id_autor, obtener tambien su nombre de la tabla usuarios, guardarlo en "autor"
     const { data, error } = await supabase
       .from('Publicaciones')
       .select('*, autor:usuarios(nombre)')
       .order('created_at', { ascending: false })
       .limit(100);
 
-
-
-
     if (error) {
       console.error('Error al obtener publicaciones:', error);
+      return [];
     }
-    console.log('Publicaciones obtenidas:', data);
-    return data;
+
+      const publicaciones = data?.map(pub => ({
+        ...pub,
+        autor: pub.autor?.nombre || 'Autor',
+      }));
+
+    console.log('Publicaciones obtenidas:', publicaciones);
+    return publicaciones;
   };
-
-
 
   const renderItem = useCallback(
     ({ item }) => {
@@ -81,12 +79,12 @@ export default function HomeScreen({ navigation }) {
             <View style={styles.publicacionHeader}>
               <View style={styles.avatar}>
                 <Text style={styles.avatarLetter}>
-                  {(item?.autor?.nombre[0] || 'N').toUpperCase()}
+                  {(item?.autor[0] || 'N').toUpperCase()}
                 </Text>
               </View>
               <View style={styles.headerText}>
                 <Text style={styles.nombreAutor} numberOfLines={1}>
-                  {item.autor?.nombre || 'Autor'}
+                  {item.autor || 'Autor'}
                 </Text>
                 <Text style={styles.fechaTexto}>
                   {item.created_at ? new Date(item.created_at).toLocaleDateString() : 'Ahora'}
