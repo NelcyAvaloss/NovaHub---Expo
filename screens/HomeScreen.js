@@ -100,128 +100,121 @@ export default function HomeScreen({ navigation }) {
   };
 
   // ---------- Supabase: votos agregados + mi voto ----------
-  const cargarVotos = async (pubs) => {
-    if (!pubs || pubs.length === 0) return;
-    const pubIds = pubs.map((p) => p.id);
+  const cargarVotos = async (pubsParam) => {
+  const source = Array.isArray(pubsParam) && pubsParam.length ? pubsParam : publicaciones;
+  const pubIds = (source || []).map(p => p.id);
+  if (!pubIds.length) return;
 
-    // 1) likes agrupados
-    const { data: likeRows, error: e1 } = await supabase
-      .from('Votos')
-      .select('publicacion_id, count:count(*)')
-      .eq('vote', 1)
-      .in('publicacion_id', pubIds)
-      .group('publicacion_id');
-    if (e1) console.error('Error likes:', e1);
+  // user actual para saber "mi voto"
+  const { data: sessionRes } = await supabase.auth.getUser();
+  const userId = sessionRes?.user?.id || null;
 
-    // 2) dislikes agrupados
-    const { data: dislikeRows, error: e2 } = await supabase
-      .from('Votos')
-      .select('publicacion_id, count:count(*)')
-      .eq('vote', -1)
-      .in('publicacion_id', pubIds)
-      .group('publicacion_id');
-    if (e2) console.error('Error dislikes:', e2);
+  // Lee los totales desde la VISTA (no uses .group())
+  const { data: totalsRows, error: eTotals } = await supabase
+    .from('votos_totales')
+    .select('*')
+    .in('id_publicacion', pubIds);
+  if (eTotals) {
+    console.error('Error totals:', eTotals);
+    return;
+  }
 
-    // 3) mi voto 
-    const { data: session } = await supabase.auth.getUser();
-    const userId = session?.user?.id || null;
+  // Lee mis votos (si hay usuario)
+  let myVotesRows = [];
+  if (userId) {
+    const { data: myRows, error: eMy } = await supabase
+      .from('votos')
+      .select('id_publicacion, valor')
+      .eq('id_usuario', userId)
+      .in('id_publicacion', pubIds);
+    if (eMy) console.error('Error myVotes:', eMy);
+    myVotesRows = myRows || [];
+  }
 
-    let myVotesRows = [];
-    if (userId) {
-      const { data: myRows, error: e3 } = await supabase
-        .from('Votos')
-        .select('publicacion_id, vote')
-        .eq('user_id', userId)
-        .in('publicacion_id', pubIds);
-      if (e3) console.error('Error myVotes:', e3);
-      myVotesRows = myRows || [];
-    }
+  // maps
+  const totalsMap = {};
+  (totalsRows || []).forEach(r => {
+    totalsMap[r.id_publicacion] = { likes: r.likes|0, dislikes: r.dislikes|0 };
+  });
 
-    // Construir mapas
-    const likesMap = {};
-    (likeRows || []).forEach((r) => (likesMap[r.publicacion_id] = r.count));
+  const myMap = {};
+  (myVotesRows || []).forEach(r => {
+    myMap[r.id_publicacion] = r.valor|0;
+  });
 
-    const dislikesMap = {};
-    (dislikeRows || []).forEach((r) => (dislikesMap[r.publicacion_id] = r.count));
-
-    const myMap = {};
-    (myVotesRows || []).forEach((r) => (myMap[r.publicacion_id] = r.vote));
-
-    // Actualizar votesMap con agregados
-    setVotesMap((prev) => {
-      const next = { ...prev };
-      pubs.forEach((p) => {
-        const base = next[p.id] || { likes: 0, dislikes: 0, myVote: 0 };
-        next[p.id] = {
-          likes: likesMap[p.id] ?? base.likes,
-          dislikes: dislikesMap[p.id] ?? base.dislikes,
-          myVote: myMap[p.id] ?? base.myVote,
-        };
-      });
-      return next;
+  // merge al estado
+  setVotesMap(prev => {
+    const next = { ...prev };
+    pubIds.forEach(id => {
+      const base = next[id] || { likes: 0, dislikes: 0, myVote: 0 };
+      const t = totalsMap[id] || { likes: base.likes, dislikes: base.dislikes };
+      next[id] = {
+        likes: t.likes,
+        dislikes: t.dislikes,
+        myVote: myMap[id] ?? base.myVote,
+      };
     });
-  };
+    return next;
+  });
+};
+
 
   // ---------- Acción de votar (like/dislike) SIN reordenar ----------
-  const applyVote = useCallback(
-    async (pubId, type) => {
-      // type: 'like' | 'dislike'
-      const { data: session } = await supabase.auth.getUser();
-      const userId = session?.user?.id || null;
+  const applyVote = async (pubId, type) => {
+  const { data: session } = await supabase.auth.getUser();
+  const userId = session?.user?.id || null;
+  if (!userId) {
+    Alert.alert('Inicia sesión', 'Debes iniciar sesión para votar.');
+    return;
+  }
 
-      if (!userId) {
-        Alert.alert('Inicia sesión', 'Debes iniciar sesión para votar.');
-        return;
-      }
+  // UI optimista
+  setVotesMap(prev => {
+    const cur = prev[pubId] || { likes: 0, dislikes: 0, myVote: 0 };
+    let { likes, dislikes, myVote } = cur;
 
-      // Actualiza contadores en UI (manteniendo el orden)
-      setVotesMap((prev) => {
-        const current = prev[pubId] || { likes: 0, dislikes: 0, myVote: 0 };
-        let { likes, dislikes, myVote } = current;
+    if (type === 'like') {
+      if (myVote === 1) { likes = Math.max(0, likes - 1); myVote = 0; }
+      else if (myVote === -1) { dislikes = Math.max(0, dislikes - 1); likes += 1; myVote = 1; }
+      else { likes += 1; myVote = 1; }
+    } else {
+      if (myVote === -1) { dislikes = Math.max(0, dislikes - 1); myVote = 0; }
+      else if (myVote === 1) { likes = Math.max(0, likes - 1); dislikes += 1; myVote = -1; }
+      else { dislikes += 1; myVote = -1; }
+    }
 
-        if (type === 'like') {
-          if (myVote === 1) { likes = Math.max(0, likes - 1); myVote = 0; }
-          else if (myVote === -1) { dislikes = Math.max(0, dislikes - 1); likes += 1; myVote = 1; }
-          else { likes += 1; myVote = 1; }
-        } else {
-          if (myVote === -1) { dislikes = Math.max(0, dislikes - 1); myVote = 0; }
-          else if (myVote === 1) { likes = Math.max(0, likes - 1); dislikes += 1; myVote = -1; }
-          else { dislikes += 1; myVote = -1; }
-        }
+    return { ...prev, [pubId]: { likes, dislikes, myVote } };
+  });
 
-        return { ...prev, [pubId]: { likes, dislikes, myVote } };
-      });
+  try {
+    // decide el voto que queda
+    const prevMyVote = votesMap[pubId]?.myVote || 0;
+    const intended = type === 'like'
+      ? (prevMyVote === 1 ? 0 : 1)
+      : (prevMyVote === -1 ? 0 : -1);
 
-      // Persistencia en Supabase (no afecta el orden del FlatList)
-      try {
-        const prevMyVote = votesMap[pubId]?.myVote || 0;
-        const intendedVote =
-          type === 'like'
-            ? (prevMyVote === 1 ? 0 : 1)
-            : (prevMyVote === -1 ? 0 : -1);
+    if (intended === 0) {
+      await supabase.from('votos')
+        .delete()
+        .eq('id_usuario', userId)
+        .eq('id_publicacion', pubId);
+    } else {
+      await supabase.from('votos')
+        .upsert(
+          [{ id_usuario: userId, id_publicacion: pubId, valor: intended }],
+          { onConflict: 'id_usuario,id_publicacion' } // requiere índice único
+        );
+    }
 
-        if (intendedVote === 0) {
-          await supabase
-            .from('Votos')
-            .delete()
-            .eq('user_id', userId)
-            .eq('publicacion_id', pubId);
-        } else {
-          await supabase
-            .from('Votos')
-            .upsert(
-              [{ user_id: userId, publicacion_id: pubId, vote: intendedVote }],
-              { onConflict: 'user_id,publicacion_id' }
-            );
-        }
-      } catch (err) {
-        console.error('Error al votar:', err);
-        Alert.alert('Error', 'No se pudo registrar tu voto.');
-        await cargarVotos(publicaciones);
-      }
-    },
-    [votesMap, publicaciones]
-  );
+    // refresca SOLO esa publicación desde la BD (totales reales)
+    await cargarVotos([{ id: pubId }]);
+  } catch (err) {
+    console.error('Error al votar:', err);
+    Alert.alert('Error', 'No se pudo registrar tu voto.');
+    await cargarVotos([{ id: pubId }]);
+  }
+};
+
 
   // ---------- Render item (sin score ni reordenamiento) ----------
   const renderItem = useCallback(
