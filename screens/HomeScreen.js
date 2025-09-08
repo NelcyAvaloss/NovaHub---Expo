@@ -9,12 +9,20 @@ import {
   TextInput,
   Animated,
 } from 'react-native';
-import { PublicacionContext } from '../contexts/PublicacionContext';
 import { styles } from './Home.styles';
+import { supabase } from './supabase';
 
 export default function HomeScreen({ navigation }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
-  const { publicaciones = [] } = useContext(PublicacionContext);
+  const [publicaciones, setPublicaciones] = React.useState([]);
+
+  React.useEffect(() => {
+    const fetchData = async () => {
+      const pubs = await obtenerPublicaciones();
+      setPublicaciones(pubs || []);
+    };
+    fetchData();
+  }, []);
 
   const handlePressIn = useCallback(() => {
     Animated.spring(scaleAnim, { toValue: 1.2, useNativeDriver: true }).start();
@@ -35,6 +43,28 @@ export default function HomeScreen({ navigation }) {
     (pub) => navigation.navigate('DetallePublicacion', { publicacion: pub }),
     [navigation]
   );
+  const obtenerPublicaciones = async () => {
+
+    // ordenar por fecha descendente
+    // Limitar a 100 resultados
+    // uno de los campos es id_autor, obtener tambien su nombre de la tabla usuarios, guardarlo en "autor"
+    const { data, error } = await supabase
+      .from('Publicaciones')
+      .select('*, autor:usuarios(nombre)')
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+
+
+
+    if (error) {
+      console.error('Error al obtener publicaciones:', error);
+    }
+    console.log('Publicaciones obtenidas:', data);
+    return data;
+  };
+
+
 
   const renderItem = useCallback(
     ({ item }) => {
@@ -51,15 +81,15 @@ export default function HomeScreen({ navigation }) {
             <View style={styles.publicacionHeader}>
               <View style={styles.avatar}>
                 <Text style={styles.avatarLetter}>
-                  {(item?.autor?.[0] || 'N').toUpperCase()}
+                  {(item?.autor?.nombre[0] || 'N').toUpperCase()}
                 </Text>
               </View>
               <View style={styles.headerText}>
                 <Text style={styles.nombreAutor} numberOfLines={1}>
-                  {item.autor || 'Autor'}
+                  {item.autor?.nombre || 'Autor'}
                 </Text>
                 <Text style={styles.fechaTexto}>
-                  {item.fecha ? new Date(item.fecha).toLocaleDateString() : 'Ahora'}
+                  {item.created_at ? new Date(item.created_at).toLocaleDateString() : 'Ahora'}
                 </Text>
               </View>
             </View>
