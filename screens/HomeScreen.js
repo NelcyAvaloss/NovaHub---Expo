@@ -13,6 +13,7 @@ import {
 import { styles } from './Home.styles';
 import { supabase } from './supabase';
 
+
 const likeIcon = require('../assets/IconoLike.png');
 const likeIconActive = require('../assets/Icono_LikeActivo.png');
 const dislikeIcon = require('../assets/IconoDislike.png');
@@ -20,7 +21,7 @@ const dislikeIconActive = require('../assets/Icono_DislikeActivo.png');
 
 export default function HomeScreen({ navigation }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
-  const flatListRef = useRef(null); // 👈 ref para hacer scroll al encabezado
+  const flatListRef = useRef(null); 
 
   const [publicaciones, setPublicaciones] = useState([]);
   // votesMap[pubId] = { likes, dislikes, myVote }
@@ -121,7 +122,7 @@ export default function HomeScreen({ navigation }) {
       .group('publicacion_id');
     if (e2) console.error('Error dislikes:', e2);
 
-    // 3) mi voto (si hay usuario)
+    // 3) mi voto 
     const { data: session } = await supabase.auth.getUser();
     const userId = session?.user?.id || null;
 
@@ -354,9 +355,10 @@ export default function HomeScreen({ navigation }) {
     <View style={styles.container}>
       <ImageBackground source={require('../assets/FondoNovaHub.png')} style={styles.headerBackground}>
         <View style={styles.header}>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Perfil')} activeOpacity={0.8}>
             <Image source={require('../assets/IconoUsuario.png')} style={styles.profileIcon} />
           </TouchableOpacity>
+
           <Text style={styles.title}>NovaHub</Text>
           <TouchableOpacity>
             <Image source={require('../assets/IconoNotificacion.png')} style={styles.icon} />
@@ -380,7 +382,7 @@ export default function HomeScreen({ navigation }) {
       {/* Feed en el MISMO ORDEN original */}
       <View style={styles.feedContainer}>
         <FlatList
-          ref={flatListRef}  // 👈 ref para poder scrollear al top
+          ref={flatListRef}  
           data={publicaciones}
           keyExtractor={(item, i) => String(item?.id ?? i)}
           contentContainerStyle={styles.listContent}
