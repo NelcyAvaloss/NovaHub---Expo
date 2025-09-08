@@ -8,6 +8,7 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
+  Alert,
   TouchableOpacity,
 } from "react-native";
 import styles from "./RecupPassword.styles";
@@ -19,21 +20,21 @@ export default function RecupPasswordScreen({ navigation }) {
   const inputRef = useRef(null);
   const disabled = email.trim().length === 0;
 
-  const handleSendLink = async () => {
-    const  {error} = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        shouldCreateUser: false}
-    });
+const handleSendLink = async () => {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: "exp://127.0.0.1:19000" // 👈 aquí pon tu deep link / scheme de la app
+  });
 
-    if (error) {
-      Alert.alert("Error", error.message);
-      console.log(error);
-      return;
-    }
-    
-    navigation.navigate("ConfirmRecup", { email });
-  };
+  if (error) {
+    Alert.alert("Error", error.message);
+    console.log(error);
+    return;
+  }
+
+  // Pasamos el correo a la pantalla de confirmación
+  navigation.navigate("ConfirmRecup", { email });
+};
+
 
   return (
     <KeyboardAvoidingView

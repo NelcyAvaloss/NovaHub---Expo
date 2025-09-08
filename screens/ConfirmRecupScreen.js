@@ -1,4 +1,5 @@
 import React, { useRef, useState } from "react";
+import { supabase } from "./supabase";
 import {
   View,
   Text,
@@ -17,6 +18,8 @@ import styles from "./ConfirmRecup.styles";
 export default function ConfirmRecupScreen({ navigation, route }) {
   // const { email } = route?.params || {};
 
+  const { email: emailParam } = route?.params || {};
+  const [email, setEmail] = useState(emailParam || '');
   const [code, setCode] = useState("");
   const [pass1, setPass1] = useState("");
   const [pass2, setPass2] = useState("");
@@ -38,22 +41,49 @@ export default function ConfirmRecupScreen({ navigation, route }) {
   const disabled = loading || !(codeOk && passOk);
 
   // Reemplaza esta función por tu llamada real al backend
-  const verifyRecoveryCode = async (codeValue) => {
-    //Prueba de que la insercion del codigo de recuperacion funcione con sus alertas.
-    await new Promise((r) => setTimeout(r, 700));
-    return codeValue === "";
-  };
+// 👇 Validar el código con Supabase
+const verifyRecoveryCode = async (codeValue) => {
+  try {
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,            // el correo del usuario (asegúrate de pasarlo por props o route.params)
+      token: codeValue, // el código de 6 dígitos que mete el user
+      type: 'recovery', // flujo de recuperación
+    });
 
-  // Reemplaza esto por la llamada real de cambio de contraseña
-  const changePassword = async (newPassword) => {
-    await new Promise((r) => setTimeout(r, 700));
+    if (error) {
+      console.log('verifyOtp error:', error.message);
+      return false;
+    }
     return true;
-  };
+  } catch (e) {
+    console.error('verifyRecoveryCode exception:', e);
+    return false;
+  }
+};
+
+// 👇 Cambiar contraseña en Supabase
+const changePassword = async (newPassword) => {
+  try {
+    const { data, error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+
+    if (error) {
+      console.log('updateUser error:', error.message);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error('changePassword exception:', e);
+    return false;
+  }
+};
+
 
   const handleConfirm = async () => {
     // Validación rápida en cliente
     if (!codeRegex.test(code)) {
-      Alert.alert("Código inválido", "El código debe tener exactamente 6 dígitos.");
+      Alert.alert("Falta correo", "No se recibió el correo para validar el código.");
       return;
     }
     if (pass1.length < MIN_PASS) {
@@ -76,7 +106,8 @@ export default function ConfirmRecupScreen({ navigation, route }) {
           "Código incorrecto",
           "El código de verificación es incorrecto o ha expirado. Verifica e inténtalo de nuevo."
         );
-        return;
+        Alert.alert("Código inválido", "El código es incorrecto o expiró. Revisa tu correo o pide uno nuevo.");
+      return;
       }
 
       const changed = await changePassword(pass1);
