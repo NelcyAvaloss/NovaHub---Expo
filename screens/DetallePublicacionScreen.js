@@ -217,7 +217,6 @@ export default function DetallePublicacionScreen({ route, navigation }) {
   const handleAddComment = useCallback(async () => {
     const text = newComment.trim();
     if (!text) return;
-    Alert.alert('Agregando comentario');
     try {
     const usuario = await obtenerUsuarioActual();
     console.log('Usuario actual:', usuario);
@@ -235,7 +234,6 @@ export default function DetallePublicacionScreen({ route, navigation }) {
       return;
     }
 
-    Alert.alert('Comentario agregado');
     const nuevo = {
       id: data[0].id,
       text: data[0].contenido,
