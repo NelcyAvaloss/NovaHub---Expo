@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect } from 'react'; //Ya funciona Github :)
 import { PublicacionContext } from '../contexts/PublicacionContext';
 import { supabase } from './supabase';
 import * as FileSystem from 'expo-file-system';
