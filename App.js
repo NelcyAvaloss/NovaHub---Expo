@@ -40,18 +40,25 @@ import AdminModeradoresScreen from './screens/AdminModeradoresScreen';
 const RootStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
+
+
+
+
+
 /** En DEV arranca en el panel, en PROD en Bienvenido */
 const INITIAL_ROUTE = __DEV__ ? 'AdminPanel' : 'Bienvenido';
+
+/*  RUTA OFICIAL A LA PUBLICA, SALIR DE MODO DESARROLLADOR */
+/* const INITIAL_ROUTE = 'Bienvenido'; */
+
+
+
+
 
 /* --------- Tabs del Panel de Administración --------- */
 function AdminTabs() {
   /** En DEV abre el tab de Usuarios; en PROD el Dashboard */
   const ADMIN_INITIAL_TAB = 'AdminDashboard';
-
-
-
-   /*  RUTA OFICIAL A LA PUBLICA, SALIR DE MODO DESARROLLADOR */
-  /* const INITIAL_ROUTE = 'Bienvenido'; */
 
 
 
