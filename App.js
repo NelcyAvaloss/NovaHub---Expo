@@ -48,6 +48,13 @@ function AdminTabs() {
   /** En DEV abre el tab de Usuarios; en PROD el Dashboard */
   const ADMIN_INITIAL_TAB = 'AdminDashboard';
 
+
+
+   /*  RUTA OFICIAL A LA PUBLICA, SALIR DE MODO DESARROLLADOR */
+  /* const INITIAL_ROUTE = 'Bienvenido'; */
+
+
+
   return (
     <Tab.Navigator
       initialRouteName={ADMIN_INITIAL_TAB}
