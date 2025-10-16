@@ -5,17 +5,39 @@ export const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
 
   /* ======== HEADER ======== */
-  headerBackground: { width: '100%', height: 105, resizeMode: 'cover' },
+  // ↑ un pelín más alto para que quepa el paddingTop del header sin cortar
+  headerBackground: { width: '100%', height: 112, resizeMode: 'cover' }, // ← actualizado
+
   header: {
-    marginTop: 38,
+    // En lugar de marginTop fijo, damos paddingTop para respetar status bar y alinear verticalmente
+    paddingTop: Platform.select({ ios: 48, android: 36 }), // ← actualizado
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+
+  // Avatar izquierdo
   profileIcon: { width: 38, height: 38, borderRadius: 19 },
-  icon: { width: 24, height: 24 },
-  title: { fontSize: 21, color: '#fff', fontWeight: 'bold', marginTop: 20, letterSpacing: 0.2 },
+
+  // Ícono derecho (notificación / admin)
+  // Aseguramos tamaño fijo para que SIEMPRE se vea
+  icon: {
+    width: 24,
+    height: 24,
+    // Opcional de debug (activa si necesitas verificar caja)
+    // borderWidth: 1,
+    // borderColor: 'red',
+  },
+
+  // Título centrado
+  // Quitamos el marginTop para que quede alineado verticalmente con los íconos
+  title: {
+    fontSize: 21,
+    color: '#fff',
+    fontWeight: 'bold',
+    letterSpacing: 0.2,
+  }, // ← actualizado (sin marginTop)
 
   /* ======== BUSCADOR ======== */
   searchContainer: {
@@ -128,7 +150,13 @@ export const styles = StyleSheet.create({
 
   // 👥 Colaboradores
   collabBlock: { marginTop: 12 },
-  collabLabel: { color: '#6B7280', fontSize: 12, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  collabLabel: {
+    color: '#6B7280',
+    fontSize: 12,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   collabRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
   collabPill: {
     paddingHorizontal: 10,
@@ -191,13 +219,12 @@ export const styles = StyleSheet.create({
     marginBottom: 10,
   },
   publicarIcono: { width: 40, height: 40 },
-  
 
-  // --- NUEVOS ESTILOS PARA VOTOS / RANKING ---
+  // --- VOTOS / RANKING ---
   voteRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex:1,
+    flex: 1,
   },
 
   voteBtn: {
@@ -221,7 +248,6 @@ export const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,159,128,0.12)',
   },
 
-  // Usamos imagen en lugar de emoji/texto
   voteImage: {
     width: 18,
     height: 18,

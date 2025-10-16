@@ -1,5 +1,5 @@
 import React from 'react';
-import { SafeAreaView, View, Text, Pressable, ImageBackground, ScrollView } from 'react-native';
+import { SafeAreaView, View, Text, Pressable, Image, ImageBackground, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import styles from './AdminDashboardScreen.styles';
 
@@ -38,9 +38,26 @@ export default function AdminDashboardScreen({ navigation }) {
             <Text style={styles.brandText}>NovaHub</Text>
           </View>
 
-          <Pressable style={styles.avatar} onPress={() => navigation.navigate('AdminProfile')}>
-            <Ionicons name="person" size={18} color="#0F172A" />
-          </Pressable>
+          {/* ===== Botonera derecha: Icono Admin -> Home + Avatar -> Perfil ===== */}
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Pressable
+              onPress={() => navigation.navigate('Home')}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Ir a Home"
+              style={{ marginRight: 12, padding: 6, borderRadius: 999 }}
+            >
+              <Image
+                source={require('../assets/IconoAdminPanel.png')}
+                style={{ width: 24, height: 24 }}
+                resizeMode="contain"
+              />
+            </Pressable>
+
+            <Pressable style={styles.avatar} onPress={() => navigation.navigate('AdminProfile')}>
+              <Ionicons name="person" size={18} color="#0F172A" />
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.headerContent}>
@@ -165,7 +182,7 @@ export default function AdminDashboardScreen({ navigation }) {
             ))}
           </View>
 
-            {/* Últimos reportes */}
+          {/* Últimos reportes */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionHeading}>Últimos reportes</Text>
