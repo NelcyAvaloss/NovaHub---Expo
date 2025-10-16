@@ -73,7 +73,7 @@ export async function obtenerDetallePublicacion(id) {
 
     //Usuario que publicó (se obtiene a partir del id de usuario en la publicación)
     const { user, error: errorUsuario } = await supabase
-        .from('Usuarios')
+        .from('usuarios')
         .select('nombre')
         .eq('id', pub.id_usuario)
         .single();
@@ -83,7 +83,7 @@ export async function obtenerDetallePublicacion(id) {
     }
     return {
         id: pub.id,
-        tittle: pub.titulo,
+        title: pub.titulo,
         author: user.nombre,
         authorId: pub.id_usuario,
         state: pub.estado_revision,
@@ -114,7 +114,7 @@ export async function obtenerPublicaciones() {
     const publicacionesConAutor = await Promise.all(
         data.map(async (publicacion) => {
             const { data: autorData, error: autorError } = await supabase
-                .from('Usuarios')
+                .from('usuarios')
                 .select('nombre')
                 .eq('id', publicacion.id_autor)
                 .single();
@@ -124,7 +124,7 @@ export async function obtenerPublicaciones() {
             }
             return { 
                 id: publicacion.id,
-                tittle: publicacion.titulo,
+                title: publicacion.titulo,
                 author: autorData.nombre,
                 authorId: publicacion.id_autor,
                 state: publicacion.estado_de_revision,
