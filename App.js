@@ -46,10 +46,10 @@ const Tab = createBottomTabNavigator();
 
 
 /** En DEV arranca en el panel, en PROD en Bienvenido */
-const INITIAL_ROUTE = __DEV__ ? 'AdminPanel' : 'Bienvenido';
+/* const INITIAL_ROUTE = __DEV__ ? 'AdminPanel' : 'Bienvenido';
 
 /*  RUTA OFICIAL A LA PUBLICA, SALIR DE MODO DESARROLLADOR */
-/* const INITIAL_ROUTE = 'Bienvenido'; */
+ const INITIAL_ROUTE = 'Login'; 
 
 
 

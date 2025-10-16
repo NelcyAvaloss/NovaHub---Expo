@@ -9,30 +9,150 @@ import {
   TextInput,
   Animated,
   Alert,
+  StyleSheet,
 } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import { styles } from './Home.styles';
 import { supabase } from './supabase';
-
 
 const likeIcon = require('../assets/IconoLike.png');
 const likeIconActive = require('../assets/Icono_LikeActivo.png');
 const dislikeIcon = require('../assets/IconoDislike.png');
 const dislikeIconActive = require('../assets/Icono_DislikeActivo.png');
 
+const ROLE_ADMIN = 'administrador';
+const ROLE_STUDENT = 'estudiante';
+
 export default function HomeScreen({ navigation }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
-  const flatListRef = useRef(null); 
+  const flatListRef = useRef(null);
+  const isFocused = useIsFocused();
 
   const [publicaciones, setPublicaciones] = useState([]);
-  // votesMap[pubId] = { likes, dislikes, myVote }
   const [votesMap, setVotesMap] = useState({});
+  const [rolUsuario, setRolUsuario] = useState(null);
 
-  // ---------- Fetch inicial ----------
+  // ===== Menú ⋮ y Reportes =====
+  const [menuPubId, setMenuPubId] = useState(null);
+
+  const REPORT_REASONS = [
+    { key: 'spam',               label: 'Spam' },
+    { key: 'agresion',           label: 'Agresión' },
+    { key: 'nsfw',               label: 'NSFW (contenido sensible)' },
+    { key: 'contenido_enganoso', label: 'Contenido engañoso' },
+    { key: 'sin_clasificar',     label: 'Reporte sin clasificar' },
+  ];
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportTarget, setReportTarget] = useState(null);
+  const [reportReason, setReportReason] = useState('spam');
+  const [reportNote, setReportNote] = useState('');
+
+  // ===== Utilidades de rol =====
+  const getRolFromUser = (user) => {
+    const metaRol = user?.user_metadata?.rol;
+    const low = typeof metaRol === 'string' ? metaRol.toLowerCase() : null;
+    if (low === ROLE_ADMIN || low === ROLE_STUDENT) return low;
+    return null;
+  };
+
+  const inferRoleFromRow = (row) => {
+    if (!row || typeof row !== 'object') return null;
+    if (row.is_admin === true || row.admin === true) return ROLE_ADMIN;
+    const candidates = [
+      row.rol, row.role, row.tipo, row.tipo_usuario, row.perfil, row.nivel,
+      row.categoria, row.rango, row.user_role,
+    ].filter((v) => typeof v === 'string');
+
+    for (const v of candidates) {
+      const low = v.toLowerCase();
+      if (low.includes('admin') || low === 'administrador') return ROLE_ADMIN;
+      if (low === 'estudiante' || low.includes('student')) return ROLE_STUDENT;
+    }
+    if (typeof row.rol_id === 'number') {
+      if (row.rol_id === 1) return ROLE_ADMIN;
+      if (row.rol_id === 0) return ROLE_STUDENT;
+    }
+    return null;
+  };
+
+  const fetchRolFromUsuarios = async (user) => {
+    const userId = user?.id;
+    const email = user?.email?.toLowerCase?.();
+
+    if (userId) {
+      const q1 = await supabase.from('usuarios').select('*').eq('id', userId).maybeSingle();
+      if (q1.error) console.log('[Home] usuarios.id error:', q1.error.message);
+      const r1 = inferRoleFromRow(q1.data);
+      if (r1) return r1;
+    }
+    if (userId) {
+      const q2 = await supabase.from('usuarios').select('*').eq('auth_id', userId).maybeSingle();
+      if (q2.error) console.log('[Home] usuarios.auth_id error:', q2.error.message);
+      const r2 = inferRoleFromRow(q2.data);
+      if (r2) return r2;
+    }
+    if (email) {
+      const q3 = await supabase.from('usuarios').select('*').ilike('email', email).maybeSingle();
+      if (q3.error) console.log('[Home] usuarios.email error:', q3.error.message);
+      const r3 = inferRoleFromRow(q3.data);
+      if (r3) return r3;
+    }
+    return null;
+  };
+
+  const fetchRol = async (why = '') => {
+    try {
+      const { data: sessionRes, error: sessionErr } = await supabase.auth.getUser();
+      if (sessionErr) console.log('[Home] getUser error:', sessionErr.message);
+
+      const user = sessionRes?.user;
+      if (!user) { setRolUsuario(null); return; }
+
+      const meta = getRolFromUser(user);
+      if (meta) { setRolUsuario(meta); return; }
+
+      const dbRol = await fetchRolFromUsuarios(user);
+      if (dbRol) { setRolUsuario(dbRol); return; }
+
+      setRolUsuario(ROLE_STUDENT);
+    } catch (e) {
+      console.log('[Home] exception fetchRol:', e, { why });
+      setRolUsuario(ROLE_STUDENT);
+    }
+  };
+
+  // ===== Escuchar cambios de sesión y foco =====
+  useEffect(() => {
+    fetchRol('mount');
+    const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        const instant = getRolFromUser(session?.user);
+        if (instant) setRolUsuario(instant);
+        else await fetchRol('auth_change_no_meta');
+      } else if (event === 'SIGNED_OUT') {
+        setRolUsuario(null);
+      }
+    });
+    return () => {
+      sub?.subscription?.unsubscribe?.();
+      sub?.unsubscribe?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isFocused) {
+      fetchRol('focus');
+      const t1 = setTimeout(() => fetchRol('focus+400ms'), 400);
+      const t2 = setTimeout(() => fetchRol('focus+1200ms'), 1200);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
+    }
+  }, [isFocused]);
+
+  // ---------- publicaciones + votos ----------
   useEffect(() => {
     const fetchAll = async () => {
       const pubs = await obtenerPublicaciones();
       setPublicaciones(pubs || []);
-      // Seed inicial de votos desde los campos que ya vengan del backend
       seedVotesFromItems(pubs || []);
       await cargarVotos(pubs || []);
     };
@@ -56,20 +176,14 @@ export default function HomeScreen({ navigation }) {
     });
   };
 
-  // ---------- Navegación FAB ----------
   const handlePressIn = useCallback(() => {
     Animated.spring(scaleAnim, { toValue: 1.2, useNativeDriver: true }).start();
   }, [scaleAnim]);
 
   const handlePressOut = useCallback(() => {
     Animated.spring(scaleAnim, {
-      toValue: 1,
-      friction: 3,
-      tension: 40,
-      useNativeDriver: true,
-    }).start(() => {
-      navigation.navigate('CrearPublicacion');
-    });
+      toValue: 1, friction: 3, tension: 40, useNativeDriver: true,
+    }).start(() => navigation.navigate('CrearPublicacion'));
   }, [navigation, scaleAnim]);
 
   const irADetalle = useCallback(
@@ -77,7 +191,6 @@ export default function HomeScreen({ navigation }) {
     [navigation]
   );
 
-  // ---------- Supabase: publicaciones ----------
   const obtenerPublicaciones = async () => {
     const { data, error } = await supabase
       .from('Publicaciones')
@@ -91,138 +204,135 @@ export default function HomeScreen({ navigation }) {
       return [];
     }
 
-    const pubs = (data || []).map((pub) => ({
+    return (data || []).map((pub) => ({
       ...pub,
       autor: pub.autor?.nombre || 'Autor',
     }));
-
-    return pubs;
   };
 
-  // ---------- Supabase: votos agregados + mi voto ----------
   const cargarVotos = async (pubsParam) => {
-  const source = Array.isArray(pubsParam) && pubsParam.length ? pubsParam : publicaciones;
-  const pubIds = (source || []).map(p => p.id);
-  if (!pubIds.length) return;
+    const source = Array.isArray(pubsParam) && pubsParam.length ? pubsParam : publicaciones;
+    const pubIds = (source || []).map((p) => p.id);
+    if (!pubIds.length) return;
 
-  // user actual para saber "mi voto"
-  const { data: sessionRes } = await supabase.auth.getUser();
-  const userId = sessionRes?.user?.id || null;
+    const { data: sessionRes } = await supabase.auth.getUser();
+    const userId = sessionRes?.user?.id || null;
 
-  // Lee los totales desde la VISTA (no uses .group())
-  const { data: totalsRows, error: eTotals } = await supabase
-    .from('votos_totales')
-    .select('*')
-    .in('id_publicacion', pubIds);
-  if (eTotals) {
-    console.error('Error totals:', eTotals);
-    return;
-  }
-
-  // Lee mis votos (si hay usuario)
-  let myVotesRows = [];
-  if (userId) {
-    const { data: myRows, error: eMy } = await supabase
-      .from('votos')
-      .select('id_publicacion, valor')
-      .eq('id_usuario', userId)
+    const { data: totalsRows, error: eTotals } = await supabase
+      .from('votos_totales')
+      .select('*')
       .in('id_publicacion', pubIds);
-    if (eMy) console.error('Error myVotes:', eMy);
-    myVotesRows = myRows || [];
-  }
+    if (eTotals) { console.error('Error totals:', eTotals); return; }
 
-  // maps
-  const totalsMap = {};
-  (totalsRows || []).forEach(r => {
-    totalsMap[r.id_publicacion] = { likes: r.likes|0, dislikes: r.dislikes|0 };
-  });
-
-  const myMap = {};
-  (myVotesRows || []).forEach(r => {
-    myMap[r.id_publicacion] = r.valor|0;
-  });
-
-  // merge al estado
-  setVotesMap(prev => {
-    const next = { ...prev };
-    pubIds.forEach(id => {
-      const base = next[id] || { likes: 0, dislikes: 0, myVote: 0 };
-      const t = totalsMap[id] || { likes: base.likes, dislikes: base.dislikes };
-      next[id] = {
-        likes: t.likes,
-        dislikes: t.dislikes,
-        myVote: myMap[id] ?? base.myVote,
-      };
-    });
-    return next;
-  });
-};
-
-
-  // ---------- Acción de votar (like/dislike) SIN reordenar ----------
-  const applyVote = async (pubId, type) => {
-  const { data: session } = await supabase.auth.getUser();
-  const userId = session?.user?.id || null;
-  if (!userId) {
-    Alert.alert('Inicia sesión', 'Debes iniciar sesión para votar.');
-    return;
-  }
-
-  // UI optimista
-  setVotesMap(prev => {
-    const cur = prev[pubId] || { likes: 0, dislikes: 0, myVote: 0 };
-    let { likes, dislikes, myVote } = cur;
-
-    if (type === 'like') {
-      if (myVote === 1) { likes = Math.max(0, likes - 1); myVote = 0; }
-      else if (myVote === -1) { dislikes = Math.max(0, dislikes - 1); likes += 1; myVote = 1; }
-      else { likes += 1; myVote = 1; }
-    } else {
-      if (myVote === -1) { dislikes = Math.max(0, dislikes - 1); myVote = 0; }
-      else if (myVote === 1) { likes = Math.max(0, likes - 1); dislikes += 1; myVote = -1; }
-      else { dislikes += 1; myVote = -1; }
-    }
-
-    return { ...prev, [pubId]: { likes, dislikes, myVote } };
-  });
-
-  try {
-    // decide el voto que queda
-    const prevMyVote = votesMap[pubId]?.myVote || 0;
-    const intended = type === 'like'
-      ? (prevMyVote === 1 ? 0 : 1)
-      : (prevMyVote === -1 ? 0 : -1);
-
-    if (intended === 0) {
-      await supabase.from('votos')
-        .delete()
+    let myVotesRows = [];
+    if (userId) {
+      const { data: myRows, error: eMy } = await supabase
+        .from('votos')
+        .select('id_publicacion, valor')
         .eq('id_usuario', userId)
-        .eq('id_publicacion', pubId);
-    } else {
-      await supabase.from('votos')
-        .upsert(
-          [{ id_usuario: userId, id_publicacion: pubId, valor: intended }],
-          { onConflict: 'id_usuario,id_publicacion' } // requiere índice único
-        );
+        .in('id_publicacion', pubIds);
+      if (eMy) console.error('Error myVotes:', eMy);
+      myVotesRows = myRows || [];
     }
 
-    // refresca SOLO esa publicación desde la BD (totales reales)
-    await cargarVotos([{ id: pubId }]);
-  } catch (err) {
-    console.error('Error al votar:', err);
-    Alert.alert('Error', 'No se pudo registrar tu voto.');
-    await cargarVotos([{ id: pubId }]);
-  }
-};
+    const totalsMap = {};
+    (totalsRows || []).forEach((r) => {
+      totalsMap[r.id_publicacion] = { likes: r.likes | 0, dislikes: r.dislikes | 0 };
+    });
 
+    const myMap = {};
+    (myVotesRows || []).forEach((r) => {
+      myMap[r.id_publicacion] = r.valor | 0;
+    });
 
-  // ---------- Render item (sin score ni reordenamiento) ----------
+    setVotesMap((prev) => {
+      const next = { ...prev };
+      pubIds.forEach((id) => {
+        const base = next[id] || { likes: 0, dislikes: 0, myVote: 0 };
+        const t = totalsMap[id] || { likes: base.likes, dislikes: base.dislikes };
+        next[id] = { likes: t.likes, dislikes: t.dislikes, myVote: myMap[id] ?? base.myVote };
+      });
+      return next;
+    });
+  };
+
+  const applyVote = async (pubId, type) => {
+    const { data: session } = await supabase.auth.getUser();
+    const userId = session?.user?.id || null;
+    if (!userId) {
+      Alert.alert('Inicia sesión', 'Debes iniciar sesión para votar.');
+      return;
+    }
+
+    setVotesMap((prev) => {
+      const cur = prev[pubId] || { likes: 0, dislikes: 0, myVote: 0 };
+      let { likes, dislikes, myVote } = cur;
+
+      if (type === 'like') {
+        if (myVote === 1) { likes = Math.max(0, likes - 1); myVote = 0; }
+        else if (myVote === -1) { dislikes = Math.max(0, dislikes - 1); likes += 1; myVote = 1; }
+        else { likes += 1; myVote = 1; }
+      } else {
+        if (myVote === -1) { dislikes = Math.max(0, dislikes - 1); myVote = 0; }
+        else if (myVote === 1) { likes = Math.max(0, likes - 1); dislikes += 1; myVote = -1; }
+        else { dislikes += 1; myVote = -1; }
+      }
+      return { ...prev, [pubId]: { likes, dislikes, myVote } };
+    });
+
+    try {
+      const prevMyVote = votesMap[pubId]?.myVote || 0;
+      const intended = type === 'like' ? (prevMyVote === 1 ? 0 : 1) : (prevMyVote === -1 ? 0 : -1);
+
+      if (intended === 0) {
+        await supabase.from('votos').delete().eq('id_usuario', userId).eq('id_publicacion', pubId);
+      } else {
+        await supabase
+          .from('votos')
+          .upsert([{ id_usuario: userId, id_publicacion: pubId, valor: intended }], {
+            onConflict: 'id_usuario,id_publicacion',
+          });
+      }
+      await cargarVotos([{ id: pubId }]);
+    } catch (err) {
+      console.error('Error al votar:', err);
+      Alert.alert('Error', 'No se pudo registrar tu voto.');
+      await cargarVotos([{ id: pubId }]);
+    }
+  };
+
+  const reportarPublicacion = async (pubId, motivo, nota) => {
+    try {
+      const { data: s } = await supabase.auth.getUser();
+      const uid = s?.user?.id || null;
+
+      const { error } = await supabase
+        .from('Decisiones_en_publicaciones')
+        .insert([{
+          id_publicacion: pubId,
+          accion: 'reporte',
+          motivo,                // 'spam' | 'agresion' | 'nsfw' | 'contenido_enganoso' | 'sin_clasificar'
+          nota: nota || null,    // comentario opcional
+          id_usuario: uid,       // quita si tu tabla no tiene esta columna
+        }]);
+
+      if (error) throw error;
+
+      setReportModalOpen(false);
+      setReportNote('');
+      setReportReason('spam');
+      setMenuPubId(null);
+      Alert.alert('Gracias', 'Tu reporte fue enviado.');
+    } catch (e) {
+      console.log('reportarPublicacion error:', e);
+      Alert.alert('Error', 'No se pudo enviar el reporte.');
+    }
+  };
+
   const renderItem = useCallback(
     ({ item }) => {
       const colaboradores = (item?.equipo_colaborador || '')
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean);
+        .split(',').map((s) => s.trim()).filter(Boolean);
 
       const v = votesMap[item.id] || {
         likes: item.likes_count ?? item.likes ?? 0,
@@ -241,6 +351,7 @@ export default function HomeScreen({ navigation }) {
                   {(item?.autor?.[0] || 'N').toUpperCase()}
                 </Text>
               </View>
+
               <View style={styles.headerText}>
                 <Text style={styles.nombreAutor} numberOfLines={1}>
                   {item.autor || 'Autor'}
@@ -249,26 +360,56 @@ export default function HomeScreen({ navigation }) {
                   {item.created_at ? new Date(item.created_at).toLocaleDateString() : 'Ahora'}
                 </Text>
               </View>
+
+              {/* 3 puntos */}
+              <TouchableOpacity
+                onPress={() => {
+                  setMenuPubId(menuPubId === item.id ? null : item.id);
+                  setReportTarget(item);
+                }}
+                style={localStyles.kebabBtn}
+                activeOpacity={0.8}
+              >
+                <Text style={localStyles.kebabText}>⋮</Text>
+              </TouchableOpacity>
             </View>
 
-            {/* Título / texto */}
-            {!!item.titulo && (
-              <Text style={styles.publicacionTitulo} numberOfLines={2}>
-                {item.titulo}
-              </Text>
-            )}
-            {!!item.descripcion && (
-              <Text style={styles.publicacionTexto} numberOfLines={3}>
-                {item.descripcion}
-              </Text>
+            {/* Menú flotante */}
+            {menuPubId === item.id && (
+              <View style={localStyles.kebabMenu}>
+                <TouchableOpacity
+                  style={localStyles.kebabItem}
+                  onPress={() => {
+                    setMenuPubId(null);
+                    setReportReason('spam');
+                    setReportNote('');
+                    setReportModalOpen(true);
+                  }}
+                >
+                  <Text style={localStyles.kebabItemText}>Reportar publicación</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={localStyles.kebabItem}
+                  onPress={() => setMenuPubId(null)}
+                >
+                  <Text style={localStyles.kebabItemText}>Cancelar</Text>
+                </TouchableOpacity>
+              </View>
             )}
 
-            {/* Imagen */}
+            {/* Título, descripción, imagen */}
+            {!!item.titulo && (
+              <Text style={styles.publicacionTitulo} numberOfLines={2}>{item.titulo}</Text>
+            )}
+            {!!item.descripcion && (
+              <Text style={styles.publicacionTexto} numberOfLines={3}>{item.descripcion}</Text>
+            )}
             {!!item.portadaUri && (
               <Image source={{ uri: item.portadaUri }} style={styles.publicacionImagen} />
             )}
 
-            {/* Chips/meta */}
+            {/* Tags */}
             <View style={styles.tagsRow}>
               {!!item.categoria && <Text style={styles.tagChip}>#{item.categoria}</Text>}
               {!!item.area && <Text style={styles.tagChip}>#{item.area}</Text>}
@@ -286,29 +427,22 @@ export default function HomeScreen({ navigation }) {
                   ))}
                   {colaboradores.length > 5 && (
                     <View style={styles.collabPillMuted}>
-                      <Text style={styles.collabPillMutedText}>
-                        +{colaboradores.length - 5}
-                      </Text>
+                      <Text style={styles.collabPillMutedText}>+{colaboradores.length - 5}</Text>
                     </View>
                   )}
                 </View>
               </View>
             )}
 
-            {/* Footer / acciones */}
+            {/* Footer */}
             <View style={styles.publicacionFooter}>
-              {/* Like / Dislike con IMÁGENES */}
               <View style={styles.voteRow}>
                 <TouchableOpacity
                   style={[styles.voteBtn, myVote === 1 && styles.voteBtnActive]}
                   activeOpacity={0.85}
                   onPress={() => applyVote(item.id, 'like')}
                 >
-                  <Image
-                    source={myVote === 1 ? likeIconActive : likeIcon}
-                    style={styles.voteImage}
-                    resizeMode="contain"
-                  />
+                  <Image source={myVote === 1 ? likeIconActive : likeIcon} style={styles.voteImage} />
                   <Text style={styles.voteCount}>{likes}</Text>
                 </TouchableOpacity>
 
@@ -319,16 +453,11 @@ export default function HomeScreen({ navigation }) {
                   activeOpacity={0.85}
                   onPress={() => applyVote(item.id, 'dislike')}
                 >
-                  <Image
-                    source={myVote === -1 ? dislikeIconActive : dislikeIcon}
-                    style={styles.voteImage}
-                    resizeMode="contain"
-                  />
+                  <Image source={myVote === -1 ? dislikeIconActive : dislikeIcon} style={styles.voteImage} />
                   <Text style={styles.voteCount}>{dislikes}</Text>
                 </TouchableOpacity>
               </View>
 
-              {/* Ver más */}
               <TouchableOpacity
                 style={styles.verMasBtn}
                 activeOpacity={0.85}
@@ -341,7 +470,7 @@ export default function HomeScreen({ navigation }) {
         </View>
       );
     },
-    [applyVote, irADetalle, votesMap]
+    [applyVote, irADetalle, votesMap, menuPubId]
   );
 
   return (
@@ -353,34 +482,55 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
 
           <Text style={styles.title}>NovaHub</Text>
-          <TouchableOpacity>
-            <Image source={require('../assets/IconoNotificacion.png')} style={styles.icon} />
-          </TouchableOpacity>
+
+          {rolUsuario == null ? (
+            <View style={[styles.icon, { width: 24, height: 24 }]} />
+          ) : (
+            <TouchableOpacity
+              onPress={() => {
+                if (rolUsuario === ROLE_ADMIN) {
+                  navigation.navigate('AdminPanel', { screen: 'AdminDashboard' });
+                } else {
+                  Alert.alert('Notificaciones', 'Próximamente…');
+                }
+              }}
+              activeOpacity={0.8}
+              style={{ alignItems: 'center' }}
+            >
+              <Image
+                key={rolUsuario}
+                source={
+                  rolUsuario === ROLE_ADMIN
+                    ? require('../assets/IconoAdminPanel.png')
+                    : require('../assets/IconoNotificacion.png')
+                }
+                style={styles.icon}
+              />
+              {rolUsuario === ROLE_ADMIN && (
+                <Text style={localStyles.headerIconLabel}>Administrador</Text>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       </ImageBackground>
 
       <View style={styles.searchContainer}>
         <TouchableOpacity style={styles.searchBar} activeOpacity={0.9}>
           <Image source={require('../assets/IconoBusqueda.png')} style={styles.searchIcon} />
-          <TextInput
-            placeholder="Buscar"
-            placeholderTextColor="#999"
-            style={styles.searchInput}
-          />
+          <TextInput placeholder="Buscar" placeholderTextColor="#999" style={styles.searchInput} />
         </TouchableOpacity>
       </View>
 
       <Text style={styles.titlePublicacion}>Publicaciones</Text>
 
-      {/* Feed en el MISMO ORDEN original */}
       <View style={styles.feedContainer}>
         <FlatList
-          ref={flatListRef}  
+          ref={flatListRef}
           data={publicaciones}
           keyExtractor={(item, i) => String(item?.id ?? i)}
           contentContainerStyle={styles.listContent}
           renderItem={renderItem}
-          extraData={votesMap}
+          extraData={{ votesMap, menuPubId }}
           ListEmptyComponent={
             <View style={{ alignItems: 'center', marginTop: 24 }}>
               <Text style={{ color: '#6B7280' }}>Aún no hay publicaciones</Text>
@@ -390,13 +540,10 @@ export default function HomeScreen({ navigation }) {
         />
       </View>
 
-      {/* Bottom Nav */}
       <View style={styles.bottomNav}>
-        {/* HOME: navegar y scrollear al encabezado */}
         <TouchableOpacity
           onPress={() => {
             navigation.navigate('Home');
-            // asegurar el scroll al top
             requestAnimationFrame(() => {
               flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
             });
@@ -426,6 +573,143 @@ export default function HomeScreen({ navigation }) {
           <Image source={require('../assets/Nav_Chat.png')} style={styles.navIcon} />
         </TouchableOpacity>
       </View>
+
+      {/* ===== Modal Reporte ===== */}
+      {reportModalOpen && (
+        <View style={localStyles.modalBackdrop}>
+          <View style={localStyles.modalSheet}>
+            <Text style={localStyles.modalTitle}>Reportar publicación</Text>
+            <Text style={localStyles.modalSub}>
+              {reportTarget?.titulo ? `“${reportTarget.titulo}”` : 'Publicación'}
+            </Text>
+
+            {/* Radios motivo */}
+            <View style={{ marginTop: 10 }}>
+              {REPORT_REASONS.map((r) => (
+                <TouchableOpacity
+                  key={r.key}
+                  style={localStyles.radioRow}
+                  onPress={() => setReportReason(r.key)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[localStyles.radioOuter, reportReason === r.key && localStyles.radioOuterActive]}>
+                    {reportReason === r.key && <View style={localStyles.radioInner} />}
+                  </View>
+                  <Text style={localStyles.radioLabel}>{r.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Nota opcional */}
+            <TextInput
+              value={reportNote}
+              onChangeText={setReportNote}
+              placeholder="Comentario (opcional)…"
+              placeholderTextColor="#94A3B8"
+              style={localStyles.modalInput}
+              multiline
+            />
+
+            {/* Acciones */}
+            <View style={localStyles.modalActions}>
+              <TouchableOpacity
+                style={localStyles.modalBtnGhost}
+                onPress={() => { setReportModalOpen(false); setMenuPubId(null); }}
+              >
+                <Text style={localStyles.modalBtnGhostText}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={localStyles.modalBtnPrimary}
+                onPress={() => {
+                  if (!reportTarget?.id) { setReportModalOpen(false); return; }
+                  // Si quieres obligar nota en "sin_clasificar", descomenta:
+                  // if (reportReason === 'sin_clasificar' && !reportNote.trim()) {
+                  //   Alert.alert('Nota requerida', 'Describe brevemente el motivo.');
+                  //   return;
+                  // }
+                  reportarPublicacion(reportTarget.id, reportReason, reportNote);
+                }}
+              >
+                <Text style={localStyles.modalBtnPrimaryText}>Enviar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
+
+const localStyles = StyleSheet.create({
+  headerIconLabel: { color: '#fff', fontSize: 10, marginTop: 4 },
+
+  // Menú ⋮
+  kebabBtn: { marginLeft: 'auto', padding: 6 },
+  kebabText: { fontSize: 22, color: '#64748B', lineHeight: 18 },
+  kebabMenu: {
+    position: 'absolute',
+    top: -10,
+    right: 8,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 3,
+    zIndex: 20,
+  },
+  kebabItem: { paddingHorizontal: 14, paddingVertical: 10 },
+  kebabItemText: { color: '#0f172a', fontSize: 14 },
+
+  // Modal
+  modalBackdrop: {
+    position: 'absolute',
+    left: 0, right: 0, top: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 30,
+  },
+  modalSheet: {
+    width: '88%',
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 16,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a' },
+  modalSub: { marginTop: 4, fontSize: 13, color: '#64748B' },
+  modalInput: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
+    padding: 10,
+    minHeight: 80,
+    textAlignVertical: 'top',
+    color: '#0f172a',
+  },
+  modalActions: { marginTop: 12, flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
+  modalBtnGhost: { paddingHorizontal: 14, paddingVertical: 10 },
+  modalBtnGhostText: { color: '#334155', fontWeight: '600' },
+  modalBtnPrimary: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#0e0e2c',
+  },
+  modalBtnPrimaryText: { color: '#fff', fontWeight: '700' },
+
+  // Radios
+  radioRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
+  radioOuter: {
+    width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#CBD5E1',
+    alignItems: 'center', justifyContent: 'center', marginRight: 10,
+  },
+  radioOuterActive: { borderColor: '#0e0e2c' },
+  radioInner: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#0e0e2c' },
+  radioLabel: { color: '#0f172a', fontSize: 14 },
+});

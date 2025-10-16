@@ -1,21 +1,45 @@
 import { StyleSheet, Platform } from 'react-native';
 
+
+
 export const styles = StyleSheet.create({
   /* ======== LAYOUT GENERAL ======== */
   container: { flex: 1, backgroundColor: '#fff' },
 
   /* ======== HEADER ======== */
-  headerBackground: { width: '100%', height: 105, resizeMode: 'cover' },
+  // ↑ un pelín más alto para que quepa el paddingTop del header sin cortar
+  headerBackground: { width: '100%', height: 112, resizeMode: 'cover' }, // ← actualizado
+
   header: {
-    marginTop: 38,
+    // En lugar de marginTop fijo, damos paddingTop para respetar status bar y alinear verticalmente
+    paddingTop: Platform.select({ ios: 48, android: 36 }), // ← actualizado
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+
+  // Avatar izquierdo
   profileIcon: { width: 38, height: 38, borderRadius: 19 },
-  icon: { width: 24, height: 24 },
-  title: { fontSize: 21, color: '#fff', fontWeight: 'bold', marginTop: 20, letterSpacing: 0.2 },
+
+  // Ícono derecho (notificación / admin)
+  // Aseguramos tamaño fijo para que SIEMPRE se vea
+  icon: {
+    width: 24,
+    height: 24,
+    // Opcional de debug (activa si necesitas verificar caja)
+    // borderWidth: 1,
+    // borderColor: 'red',
+  },
+
+  // Título centrado
+  // Quitamos el marginTop para que quede alineado verticalmente con los íconos
+  title: {
+    fontSize: 21,
+    color: '#fff',
+    fontWeight: 'bold',
+    letterSpacing: 0.2,
+  }, // ← actualizado (sin marginTop)
 
   /* ======== BUSCADOR ======== */
   searchContainer: {
@@ -99,6 +123,8 @@ export const styles = StyleSheet.create({
   nombreAutor: { color: '#0f172a', fontWeight: '700', fontSize: 14 },
   fechaTexto: { color: '#6B7280', fontSize: 12, marginTop: 2 },
 
+  
+
   // Texto
   publicacionTitulo: { color: '#111827', fontSize: 16, fontWeight: '700', marginTop: 4 },
   publicacionTexto: { color: '#374151', fontSize: 14, lineHeight: 20, marginTop: 4 },
@@ -128,7 +154,13 @@ export const styles = StyleSheet.create({
 
   // 👥 Colaboradores
   collabBlock: { marginTop: 12 },
-  collabLabel: { color: '#6B7280', fontSize: 12, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  collabLabel: {
+    color: '#6B7280',
+    fontSize: 12,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   collabRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
   collabPill: {
     paddingHorizontal: 10,
@@ -191,13 +223,12 @@ export const styles = StyleSheet.create({
     marginBottom: 10,
   },
   publicarIcono: { width: 40, height: 40 },
-  
 
-  // --- NUEVOS ESTILOS PARA VOTOS / RANKING ---
+  // --- VOTOS / RANKING ---
   voteRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex:1,
+    flex: 1,
   },
 
   voteBtn: {
@@ -221,7 +252,6 @@ export const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,159,128,0.12)',
   },
 
-  // Usamos imagen en lugar de emoji/texto
   voteImage: {
     width: 18,
     height: 18,
@@ -249,4 +279,112 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
+  
+
+  kebabBtn: {
+  marginLeft: 'auto',
+  padding: 6,
+  borderRadius: 8,
+},
+kebabText: {
+  fontSize: 22,
+  lineHeight: 20,
+  color: '#111827',
+},
+
+kebabMenu: {
+  position: 'absolute',
+  top: 15,           // ajusta si lo ves muy arriba/abajo
+  right: 8,
+  backgroundColor: '#FFFFFF',
+  borderRadius: 10,
+  borderWidth: 1,
+  borderColor: '#E5E7EB',
+  shadowColor: '#000',
+  shadowOpacity: 0.08,
+  shadowRadius: 12,
+  shadowOffset: { width: 0, height: 8 },
+  ...Platform.select({ android: { elevation: 4 } }),
+  overflow: 'hidden',
+},
+kebabItem: {
+  paddingHorizontal: 14,
+  paddingVertical: 12,
+},
+kebabItemText: {
+  color: '#0f172a',
+  fontSize: 14,
+  fontWeight: '600',
+},
+
+kebabBtn: { marginLeft: 'auto', padding: 6 },
+kebabText: { fontSize: 22, color: '#64748B', lineHeight: 18 },
+
+kebabMenu: {
+  position: 'absolute',
+  top: -10,        // súbelo/bájalo ajustando este valor
+  right: 8,
+  backgroundColor: '#fff',
+  borderRadius: 10,
+  borderWidth: 1,
+  borderColor: '#E5E7EB',
+  shadowColor: '#000',
+  shadowOpacity: 0.08,
+  shadowRadius: 12,
+  shadowOffset: { width: 0, height: 8 },
+  elevation: 3,
+  zIndex: 20,
+},
+kebabItem: { paddingHorizontal: 14, paddingVertical: 10 },
+kebabItemText: { color: '#0f172a', fontSize: 14 },
+
+// Modal
+modalBackdrop: {
+  position: 'absolute',
+  inset: 0,
+  backgroundColor: 'rgba(0,0,0,0.35)',
+  alignItems: 'center',
+  justifyContent: 'center',
+  zIndex: 30,
+},
+modalSheet: {
+  width: '88%',
+  backgroundColor: '#fff',
+  borderRadius: 14,
+  padding: 16,
+},
+modalTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a' },
+modalSub: { marginTop: 4, fontSize: 13, color: '#64748B' },
+modalInput: {
+  marginTop: 12,
+  borderWidth: 1,
+  borderColor: '#E5E7EB',
+  borderRadius: 10,
+  padding: 10,
+  minHeight: 80,
+  textAlignVertical: 'top',
+  color: '#0f172a',
+},
+modalActions: { marginTop: 12, flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
+modalBtnGhost: { paddingHorizontal: 14, paddingVertical: 10 },
+modalBtnGhostText: { color: '#334155', fontWeight: '600' },
+modalBtnPrimary: {
+  paddingHorizontal: 16,
+  paddingVertical: 10,
+  borderRadius: 10,
+  backgroundColor: '#0e0e2c',
+},
+modalBtnPrimaryText: { color: '#fff', fontWeight: '700' },
+
+// Radios
+radioRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
+radioOuter: {
+  width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#CBD5E1',
+  alignItems: 'center', justifyContent: 'center', marginRight: 10,
+},
+radioOuterActive: { borderColor: '#0e0e2c' },
+radioInner: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#0e0e2c' },
+radioLabel: { color: '#0f172a', fontSize: 14 },
+
+
 });
