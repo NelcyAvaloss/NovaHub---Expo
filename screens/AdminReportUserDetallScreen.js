@@ -18,7 +18,7 @@ export default function AdminUserReportDetailScreen({ route, navigation }) {
   // Espera: route.params.report (targetType === 'usuario')
   const incoming = route?.params?.report;
 
-  // fallback por si entras directo en dev
+  // fallback por si se entra directo en dev
   const fallback = {
     id: 'r2',
     reason: 'Acoso / agresión',

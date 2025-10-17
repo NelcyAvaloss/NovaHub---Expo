@@ -134,22 +134,7 @@ export default function AdminDashboardScreen({ navigation }) {
               <Text style={styles.kpiLabelCenter} numberOfLines={2}>Reportes abiertos</Text>
             </View>
 
-            {/* KPI: Tasa de aprobación */}
-            <View style={styles.kpiCardSimple}>
-              <View style={styles.kpiDeltaAbsolute}>
-                <View style={[styles.deltaBadge, styles.deltaUp]}>
-                  <Ionicons name="arrow-up" size={12} color="#166534" />
-                  <Text style={styles.deltaTextUp}>+2%</Text>
-                </View>
-              </View>
-
-              <View style={[styles.kpiIconWrap, styles.kpiIconEmerald]}>
-                <Ionicons name="checkmark-done" size={20} color="#065F46" />
-              </View>
-
-              <Text style={styles.kpiValueBig}>{kpis.approvalRate}%</Text>
-              <Text style={styles.kpiLabelCenter} numberOfLines={2}>Tasa de aprobación</Text>
-            </View>
+            
           </View>
         </View>
 

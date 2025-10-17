@@ -131,7 +131,6 @@ export default function AdminReportsListScreen({ navigation }) {
     Alert.alert('Sin resolver', `Reporte ${id} marcado como "sin resolver".`);
   };
 
-  // 🚀 NAVEGACIÓN SEGÚN TIPO (usa los NAMES del Stack, NO los nombres de los componentes)
   const openReport = (id) => {
     // 1) Obtén el reporte antes de mutar estado
     const rep = reports.find(x => x.id === id);
