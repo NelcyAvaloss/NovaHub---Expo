@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import s from './AdminPublicationsListScreen.styles';
+import { obtenerPublicaciones } from '../services/AdminPublicacionesService';
 
 // MOCK inicial (sin "pendiente")
 const INITIAL = [
@@ -27,6 +28,17 @@ const STATES = ['todas', 'publicada', 'rechazada'];
 
 export default function AdminPublicationsListScreen({ navigation }) {
   const [items, setItems] = React.useState(INITIAL);
+React.useEffect(() => {
+  async function fetchData() {
+    // Cargar publicaciones reales desde Supabase
+    console.log('Cargando publicaciones desde Supabase...');
+    const data = await obtenerPublicaciones();
+    console.log('Publicaciones cargadas:', data);
+    setItems(data);
+  }
+  fetchData();
+}, []);
+
 
   // UI state
   const [q, setQ] = React.useState('');

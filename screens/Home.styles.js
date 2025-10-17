@@ -1,5 +1,7 @@
 import { StyleSheet, Platform } from 'react-native';
 
+
+
 export const styles = StyleSheet.create({
   /* ======== LAYOUT GENERAL ======== */
   container: { flex: 1, backgroundColor: '#fff' },
@@ -120,6 +122,8 @@ export const styles = StyleSheet.create({
   headerText: { flexShrink: 1 },
   nombreAutor: { color: '#0f172a', fontWeight: '700', fontSize: 14 },
   fechaTexto: { color: '#6B7280', fontSize: 12, marginTop: 2 },
+
+  
 
   // Texto
   publicacionTitulo: { color: '#111827', fontSize: 16, fontWeight: '700', marginTop: 4 },
@@ -275,4 +279,112 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
+  
+
+  kebabBtn: {
+  marginLeft: 'auto',
+  padding: 6,
+  borderRadius: 8,
+},
+kebabText: {
+  fontSize: 22,
+  lineHeight: 20,
+  color: '#111827',
+},
+
+kebabMenu: {
+  position: 'absolute',
+  top: 15,           // ajusta si lo ves muy arriba/abajo
+  right: 8,
+  backgroundColor: '#FFFFFF',
+  borderRadius: 10,
+  borderWidth: 1,
+  borderColor: '#E5E7EB',
+  shadowColor: '#000',
+  shadowOpacity: 0.08,
+  shadowRadius: 12,
+  shadowOffset: { width: 0, height: 8 },
+  ...Platform.select({ android: { elevation: 4 } }),
+  overflow: 'hidden',
+},
+kebabItem: {
+  paddingHorizontal: 14,
+  paddingVertical: 12,
+},
+kebabItemText: {
+  color: '#0f172a',
+  fontSize: 14,
+  fontWeight: '600',
+},
+
+kebabBtn: { marginLeft: 'auto', padding: 6 },
+kebabText: { fontSize: 22, color: '#64748B', lineHeight: 18 },
+
+kebabMenu: {
+  position: 'absolute',
+  top: -10,        // súbelo/bájalo ajustando este valor
+  right: 8,
+  backgroundColor: '#fff',
+  borderRadius: 10,
+  borderWidth: 1,
+  borderColor: '#E5E7EB',
+  shadowColor: '#000',
+  shadowOpacity: 0.08,
+  shadowRadius: 12,
+  shadowOffset: { width: 0, height: 8 },
+  elevation: 3,
+  zIndex: 20,
+},
+kebabItem: { paddingHorizontal: 14, paddingVertical: 10 },
+kebabItemText: { color: '#0f172a', fontSize: 14 },
+
+// Modal
+modalBackdrop: {
+  position: 'absolute',
+  inset: 0,
+  backgroundColor: 'rgba(0,0,0,0.35)',
+  alignItems: 'center',
+  justifyContent: 'center',
+  zIndex: 30,
+},
+modalSheet: {
+  width: '88%',
+  backgroundColor: '#fff',
+  borderRadius: 14,
+  padding: 16,
+},
+modalTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a' },
+modalSub: { marginTop: 4, fontSize: 13, color: '#64748B' },
+modalInput: {
+  marginTop: 12,
+  borderWidth: 1,
+  borderColor: '#E5E7EB',
+  borderRadius: 10,
+  padding: 10,
+  minHeight: 80,
+  textAlignVertical: 'top',
+  color: '#0f172a',
+},
+modalActions: { marginTop: 12, flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
+modalBtnGhost: { paddingHorizontal: 14, paddingVertical: 10 },
+modalBtnGhostText: { color: '#334155', fontWeight: '600' },
+modalBtnPrimary: {
+  paddingHorizontal: 16,
+  paddingVertical: 10,
+  borderRadius: 10,
+  backgroundColor: '#0e0e2c',
+},
+modalBtnPrimaryText: { color: '#fff', fontWeight: '700' },
+
+// Radios
+radioRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
+radioOuter: {
+  width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#CBD5E1',
+  alignItems: 'center', justifyContent: 'center', marginRight: 10,
+},
+radioOuterActive: { borderColor: '#0e0e2c' },
+radioInner: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#0e0e2c' },
+radioLabel: { color: '#0f172a', fontSize: 14 },
+
+
 });
