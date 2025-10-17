@@ -14,7 +14,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import s from './AdminReportDetallScreen.styles';
+import s from './AdminReportPublicDetallScreen.styles';
 
 const likeIcon = require('../assets/IconoLike.png');
 const dislikeIcon = require('../assets/IconoDislike.png');
@@ -166,7 +166,7 @@ export default function AdminReportDetallScreen({ route, navigation }) {
       >
         <View style={s.headerOverlay} />
         <View style={s.headerContent}>
-          <Text style={s.headerTitle}>Reporte</Text>
+          <Text style={s.headerTitle}>Reporte de publicacion</Text>
           <Text style={s.headerSub}>#{baseReport.id}</Text>
 
           <View style={s.headerChipsRow}>

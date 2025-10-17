@@ -28,13 +28,20 @@ import AdminUsersListScreen from './screens/AdminUsersListScreen';
 import AdminUserDetallScreen from './screens/AdminUserDetallScreen';
 import AdminPublicationsListScreen from './screens/AdminPublicationsListScreen';
 import AdminPublicationDetallScreen from './screens/AdminPublicationDetallScreen';
-import AdminReportsListScreen from './screens/AdminReportsListScreen';
-import AdminReportDetallScreen from './screens/AdminReportDetallScreen';
 import AdminSoporteScreen from './screens/AdminSoporteScreen';
 import AdminProfileScreen from './screens/AdminProfileScreen';
 
+/* Reportes */
+import AdminReportsListScreen from './screens/AdminReportsListScreen';
+
+import AdminReportCommentDetallScreen from './screens/AdminReportCommentDetallScreen';
+import AdminReportUserDetallScreen from './screens/AdminReportUserDetallScreen';
+import AdminReportPublicDetallScreen from './screens/AdminReportPublicDetallScreen';
+
+
 /* Extras */
 import AdminModeradoresScreen from './screens/AdminModeradoresScreen';
+import AdminHilosSoporteScreen from './screens/AdminHilosSoporteScreen';
 
 
 const RootStack = createNativeStackNavigator();
@@ -46,10 +53,10 @@ const Tab = createBottomTabNavigator();
 
 
 /** En DEV arranca en el panel, en PROD en Bienvenido */
-/* const INITIAL_ROUTE = __DEV__ ? 'AdminPanel' : 'Bienvenido';
+ const INITIAL_ROUTE = __DEV__ ? 'AdminPanel' : 'Bienvenido';
 
 /*  RUTA OFICIAL A LA PUBLICA, SALIR DE MODO DESARROLLADOR */
- const INITIAL_ROUTE = 'Login'; 
+ /* const INITIAL_ROUTE = 'Login'; */
 
 
 
@@ -168,10 +175,14 @@ export default function App() {
             {/* --------- Rutas push (Detall + extras) --------- */}
             <RootStack.Screen name="AdminUserDetall" component={AdminUserDetallScreen} />
             <RootStack.Screen name="AdminPublicationDetall" component={AdminPublicationDetallScreen} />
-            <RootStack.Screen name="AdminReportDetall" component={AdminReportDetallScreen} />
+            
 
             
             <RootStack.Screen name="AdminSoporte" component={AdminSoporteScreen} />
+            <RootStack.Screen name="AdminHilosSoporte" component={AdminHilosSoporteScreen} />
+            <RootStack.Screen name="AdminReportPublicDetall" component={AdminReportPublicDetallScreen} />
+            <RootStack.Screen name="AdminReportCommentDetall" component={AdminReportCommentDetallScreen} />
+            <RootStack.Screen name="AdminReportUserDetall" component={AdminReportUserDetallScreen} />
             
 
             <RootStack.Screen name="AdminModeradores" component={AdminModeradoresScreen} />

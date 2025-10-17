@@ -40,6 +40,8 @@ const INITIAL = [
   { id: 'r3', reason: 'NSFW',               state: 'resuelto',  targetType: 'publicacion', targetId: 'p1', reporter: 'María',  createdAt: '2025-10-09 17:40', category: 'NSFW' },
   { id: 'r4', reason: 'Contenido engañoso', state: 'abierto',   targetType: 'publicacion', targetId: 'p7', reporter: 'Carlos', createdAt: '2025-10-12 12:33', category: 'Contenido engañoso' },
   { id: 'r5', reason: 'Reporte sin clasificar', state: 'pendiente', targetType: 'publicacion', targetId: 'p9', reporter: 'Eva', createdAt: '2025-10-12 13:22', category: null },
+  { id: 'r6', reason: 'Lenguaje ofensivo',  state: 'abierto',   targetType: 'comentario',  targetId: 'c12', reporter: 'Luis',  createdAt: '2025-10-12 14:05', category: 'Lenguaje ofensivo' },
+  { id: 'r7', reason: 'Spam en comentarios',state: 'pendiente', targetType: 'comentario',  targetId: 'c21', reporter: 'Diana', createdAt: '2025-10-13 10:48', category: 'Spam' },
 ];
 
 export default function AdminReportsListScreen({ navigation }) {
@@ -60,6 +62,7 @@ export default function AdminReportsListScreen({ navigation }) {
   const [showFilters, setShowFilters] = React.useState(false);
   const [onlyUsers, setOnlyUsers] = React.useState(false);
   const [onlyPosts, setOnlyPosts] = React.useState(false);
+  const [onlyComments, setOnlyComments] = React.useState(false);
   const [range, setRange] = React.useState('30d');
 
   // Filtro GLOBAL por categoría (no edita reportes)
@@ -83,6 +86,7 @@ export default function AdminReportsListScreen({ navigation }) {
       .filter(r => {
         if (onlyUsers && r.targetType !== 'usuario') return false;
         if (onlyPosts && r.targetType !== 'publicacion') return false;
+        if (onlyComments && r.targetType !== 'comentario') return false;
         return true;
       })
       .filter(r => {
@@ -91,12 +95,12 @@ export default function AdminReportsListScreen({ navigation }) {
         return r.category === selectedCat;
       })
       .filter(r => {
-        const text = `${r.id} ${r.reason} ${r.targetId} ${r.reporter} ${r.category ?? ''}`.toLowerCase();
+        const text = `${r.id} ${r.reason} ${r.targetId} ${r.reporter} ${r.category ?? ''} ${r.targetType}`.toLowerCase();
         return text.includes(q.toLowerCase().trim());
       });
 
     return base;
-  }, [q, tab, onlyUsers, onlyPosts, range, selectedCat, reports]);
+  }, [q, tab, onlyUsers, onlyPosts, onlyComments, range, selectedCat, reports]);
 
   const badge = (st) => {
     if (st === 'resuelto')       return { box: s.badgeGreen,  text: s.badgeTextDark, icon: 'checkmark-circle' };
@@ -127,16 +131,35 @@ export default function AdminReportsListScreen({ navigation }) {
     Alert.alert('Sin resolver', `Reporte ${id} marcado como "sin resolver".`);
   };
 
+  // 🚀 NAVEGACIÓN SEGÚN TIPO (usa los NAMES del Stack, NO los nombres de los componentes)
   const openReport = (id) => {
-    setReports(prev =>
-      prev.map(r => (r.id === id && r.state === 'pendiente' ? { ...r, state: 'abierto' } : r))
-    );
+    // 1) Obtén el reporte antes de mutar estado
+    const rep = reports.find(x => x.id === id);
+    if (!rep) return;
+
+    // 2) Feedback visual: si estaba pendiente, pásalo a abierto
+    if (rep.state === 'pendiente') {
+      setReports(prev => prev.map(r => (r.id === id ? { ...r, state: 'abierto' } : r)));
+    }
     setLastChangedId(id);
-    navigation.navigate('AdminReportDetall', { reportId: id });
+
+    // 3) Mapa tipo -> nombre de ruta EXACTO (como lo registraste en RootStack.Screen)
+    const routeByType = {
+      publicacion: 'AdminReportPublicDetall',
+      usuario:     'AdminReportUserDetall',
+      comentario:  'AdminReportCommentDetall',
+    };
+
+    const routeName = routeByType[rep.targetType];
+    if (!routeName) {
+      console.warn('Tipo de reporte no soportado:', rep.targetType);
+      return;
+    }
+
+    navigation.navigate(routeName, { report: rep, reportId: rep.id });
   };
 
   // ===== Estilo dinámico para los chips de acción =====
-  // kind: 'resolve' - 'unresolve'
   const chipPalette = (state, kind) => {
     const active =
       (kind === 'resolve'   && state === 'resuelto') ||
@@ -284,7 +307,7 @@ export default function AdminReportsListScreen({ navigation }) {
             <TextInput
               value={q}
               onChangeText={setQ}
-              placeholder="Buscar por razón, #ID, usuario o publicación…"
+              placeholder="Buscar por razón, #ID, usuario, publicación o comentario…"
               placeholderTextColor="#94A3B8"
               style={s.input}
             />
@@ -321,7 +344,7 @@ export default function AdminReportsListScreen({ navigation }) {
           })}
         </View>
 
-        {/* KPIs: 3 arriba, 2 centrados abajo */}
+        {/* KPIs */}
         <View style={s.metricsTopRow}>
           <View style={s.metricCard}><Text style={s.metricLabel}>Total</Text><Text style={s.metricValue}>{counts.total}</Text></View>
           <View style={s.metricCard}><Text style={s.metricLabel}>Abiertos</Text><Text style={s.metricValue}>{counts.abierto}</Text></View>
@@ -337,9 +360,10 @@ export default function AdminReportsListScreen({ navigation }) {
           {filtered.map(r => {
             const b = badge(r.state);
             const isUser = r.targetType === 'usuario';
+            const isPost = r.targetType === 'publicacion';
+            const isComment = r.targetType === 'comentario';
             const changed = lastChangedId === r.id;
 
-            // paletas dinámicas para cada botón según el estado del reporte
             const pr = chipPalette(r.state, 'resolve');
             const pu = chipPalette(r.state, 'unresolve');
 
@@ -349,20 +373,37 @@ export default function AdminReportsListScreen({ navigation }) {
                 style={[s.card, changed && s.cardChanged]}
                 onPress={() => openReport(r.id)}
               >
-                <View style={[s.stateBand, isUser ? s.bandPurple : s.bandIndigo]} />
+                <View style={[s.stateBand, isUser ? s.bandPurple : isComment ? s.bandIndigo : s.bandIndigo]} />
 
                 <View style={s.cardRow}>
                   <View style={s.iconTarget}>
-                    <Ionicons name={isUser ? 'person' : 'document-text'} size={16} color="#3730A3" />
+                    <Ionicons
+                      name={isUser ? 'person' : isComment ? 'chatbubble-ellipses' : 'document-text'}
+                      size={16}
+                      color="#3730A3"
+                    />
                   </View>
 
                   <View style={s.cardLeft}>
                     <Text style={s.title} numberOfLines={1}>
                       Reporte {r.id} · {r.reason}
                     </Text>
-                    <Text style={s.sub} numberOfLines={1}>
-                      {isUser ? 'Usuario' : 'Publicación'}: {r.targetId} · por {r.reporter} · {r.createdAt}
-                    </Text>
+
+                    {isUser && (
+                      <Text style={s.sub} numberOfLines={1}>
+                        Usuario: {r.targetId} · por {r.reporter} · {r.createdAt}
+                      </Text>
+                    )}
+                    {isPost && (
+                      <Text style={s.sub} numberOfLines={1}>
+                        Publicación: {r.targetId} · por {r.reporter} · {r.createdAt}
+                      </Text>
+                    )}
+                    {isComment && (
+                      <Text style={s.sub} numberOfLines={1}>
+                        Comentario: {r.targetId} · por {r.reporter} · {r.createdAt}
+                      </Text>
+                    )}
                   </View>
 
                   <View style={[s.badge, b.box]}>
@@ -370,8 +411,8 @@ export default function AdminReportsListScreen({ navigation }) {
                       name={b.icon}
                       size={14}
                       color={
-                        r.state === 'resuelto'      ? '#065F46' :
-                        r.state === 'pendiente'     ? '#92400E' :
+                        r.state === 'resuelto'  ? '#065F46' :
+                        r.state === 'pendiente' ? '#92400E' :
                         '#1E3A8A'
                       }
                     />
@@ -387,7 +428,7 @@ export default function AdminReportsListScreen({ navigation }) {
                   </View>
                 </View>
 
-                {/* Acciones rápidas (SIN botón Cerrar) con sombreado dinámico */}
+                {/* Acciones rápidas */}
                 <View style={s.chipRow}>
                   <Pressable style={pr.wrap} onPress={() => resolver(r.id)}>
                     <Ionicons name="checkmark-circle" size={14} color={pr.iconColor} />
@@ -430,19 +471,39 @@ export default function AdminReportsListScreen({ navigation }) {
 
             <View style={s.modalSection}>
               <Text style={s.modalSectionTitle}>Tipo de objetivo</Text>
+
               <View style={s.switchRow}>
                 <View style={s.switchLabelRow}>
                   <View style={s.switchIconWrap}><Ionicons name="document-text" size={14} color="#3730A3" /></View>
                   <Text style={s.switchLabel}>Solo publicaciones</Text>
                 </View>
-                <Switch value={onlyPosts} onValueChange={v => { setOnlyPosts(v); if (v) setOnlyUsers(false); }} />
+                <Switch
+                  value={onlyPosts}
+                  onValueChange={v => { setOnlyPosts(v); if (v) { setOnlyUsers(false); setOnlyComments(false); } }}
+                />
               </View>
+
               <View style={[s.switchRow, { marginTop: 8 }]}>
                 <View style={s.switchLabelRow}>
                   <View style={s.switchIconWrap}><Ionicons name="person" size={14} color="#3730A3" /></View>
                   <Text style={s.switchLabel}>Solo usuarios</Text>
                 </View>
-                <Switch value={onlyUsers} onValueChange={v => { setOnlyUsers(v); if (v) setOnlyPosts(false); }} />
+                <Switch
+                  value={onlyUsers}
+                  onValueChange={v => { setOnlyUsers(v); if (v) { setOnlyPosts(false); setOnlyComments(false); } }}
+                />
+              </View>
+
+              {/* Solo comentarios */}
+              <View style={[s.switchRow, { marginTop: 8 }]}>
+                <View style={s.switchLabelRow}>
+                  <View style={s.switchIconWrap}><Ionicons name="chatbubble-ellipses" size={14} color="#3730A3" /></View>
+                  <Text style={s.switchLabel}>Solo comentarios</Text>
+                </View>
+                <Switch
+                  value={onlyComments}
+                  onValueChange={v => { setOnlyComments(v); if (v) { setOnlyPosts(false); setOnlyUsers(false); } }}
+                />
               </View>
             </View>
 
@@ -460,7 +521,12 @@ export default function AdminReportsListScreen({ navigation }) {
             <View style={s.modalFooter}>
               <Pressable
                 style={[s.btn, s.btnGhost]}
-                onPress={() => { setOnlyPosts(false); setOnlyUsers(false); setRange('30d'); }}
+                onPress={() => {
+                  setOnlyPosts(false);
+                  setOnlyUsers(false);
+                  setOnlyComments(false);
+                  setRange('30d');
+                }}
               >
                 <Text style={s.btnGhostText}>Restablecer</Text>
               </Pressable>

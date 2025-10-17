@@ -185,5 +185,4 @@ export default StyleSheet.create({
   btnPrimaryText: { color: '#FFFFFF', fontWeight: '900' },
   btnGhost: { backgroundColor: '#EEF2FF', borderColor: 'rgba(199, 210, 254, 1)' },
   btnGhostText: { color: '#1B1F3B', fontWeight: '900' },
-  
 });
