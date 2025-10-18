@@ -14,6 +14,7 @@ export async function aprobarPublicacion(id) {
 
 export async function rechazarPublicacion(id) {
     // Inserta un registro en Decisiones_en_publicaciones con accion 'rechazar'
+    console.log('Rechazando publicación con id:', id);
     const { data, error } = await supabase
         .from('Decisiones_en_publicaciones')
         .insert([{ id_publicacion: id, accion: 'rechazar' }]);
@@ -23,6 +24,20 @@ export async function rechazarPublicacion(id) {
         }
         return true;
 }
+
+export async function eliminarPublicacion(id) {
+   console.log('Eliminando publicación con id:', id);
+    const { data, error } = await supabase
+        .from('Decisiones_en_publicaciones')
+        .insert([{ id_publicacion: id, accion: 'eliminar' }]);
+        if (error) {
+            console.error('Error al eliminar publicación:', error);
+            return false;
+        }
+        console.log('Publicación eliminada con éxito:', data);
+        return true;
+}
+
 
 export async function obtenerDetallePublicacion(id) {
     //Data de la publicación
