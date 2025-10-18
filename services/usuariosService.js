@@ -118,3 +118,5 @@ export async function eliminarUsuario(id) {
   if (error) return { ok: false, error };
   return { ok: true };
 }
+
+//Pruebita, borrar luego
