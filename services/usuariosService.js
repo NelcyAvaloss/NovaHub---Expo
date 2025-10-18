@@ -27,7 +27,7 @@ function mapUsuario(row) {
     id: row.id,
     name: row.nombre ?? row.name ?? "Sin nombre",
     email: pickEmail(row),
-    role: pickRole(row),
+    role: row.tipo_usuario ? row.tipo_usuario : pickRole(row),
     status: pickStatus(row),
     joinedAt: row.created_at ?? row.creado_el ?? null,
     lastSeen: row.ultima_vez ?? row.last_seen ?? row.ultimo_login ?? null,
@@ -40,6 +40,19 @@ export async function obtenerUsuarios() {
     .from("usuarios")
     .select("*")
     .order("created_at", { ascending: false });
+
+    //Obtener correos de la tabla Correos_de_usuarios y agregarlos a los usuarios
+    await Promise.all(data.map(async (usuario) => {
+      const { data: correoData, error: correoError } = await supabase
+        .from("Correos_de_usuarios")
+        .select("correo")
+        .eq("id_usuario", usuario.id);
+      if (!correoError && correoData && correoData.length > 0) {
+        usuario.email = correoData[0].correo;
+      }
+    }));
+
+    
 
   if (error) {
     console.error("Error al obtener usuarios:", error);
@@ -73,6 +86,17 @@ export async function obtenerUsuarioPorId(id) {
     .select("*")
     .eq("id", id)
     .single();
+
+    //Obtener correo de la tabla Correos_de_usuarios y agregarlo al usuario
+    if (data) {
+      const { data: correoData, error: correoError } = await supabase
+        .from("Correos_de_usuarios")
+        .select("correo")
+        .eq("id_usuario", data.id);
+      if (!correoError && correoData && correoData.length > 0) {
+        data.email = correoData[0].correo;
+      }
+  }
 
   if (error) return { ok: false, error };
   return { ok: true, data: mapUsuario(data) };
