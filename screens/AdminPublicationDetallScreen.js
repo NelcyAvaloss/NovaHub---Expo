@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import s from './AdminPublicationDetallScreen.styles';
+import  {aprobarPublicacion, rechazarPublicacion, eliminarPublicacion, obtenerDetallePublicacion } from '../services/AdminPublicacionesService';
 
 // Íconos like/dislike (mismos que Home)
 const likeIcon = require('../assets/IconoLike.png');
@@ -49,6 +50,15 @@ export default function AdminPublicationDetallScreen({ route, navigation }) {
     { id: 'h1', action: 'Creada', by: 'María López', at: '2025-09-30 10:22' },
     { id: 'h2', action: 'Publicada', by: 'Sistema', at: '2025-09-30 10:23' },
   ]);
+  React.useEffect(() => {
+    async function fetchData() {
+      const data = await obtenerDetallePublicacion(pubId);
+      console.log('Detalles de publicación obtenidos:', data);
+      setPub(data);
+    }
+    console.log('Obteniendo detalles de publicación para ID:', pubId);
+    fetchData();
+  }, []);
 
   const [myVote, setMyVote] = React.useState(0);
   const [likeCount, setLikeCount] = React.useState(pub.likes || 0);
@@ -73,21 +83,25 @@ export default function AdminPublicationDetallScreen({ route, navigation }) {
   };
 
   // ===== Acciones =====
-  const republish = () => {
+  const republish = async () => {
     if (pub.state === 'publicada') return;
-    setPub(p => ({ ...p, state: 'publicada' }));
-    pushHistory('Re-publicada');
-    Alert.alert('Listo', 'La publicación ha sido re-publicada.');
+    if (await aprobarPublicacion(pub.id)) {
+      setPub(p => ({ ...p, state: 'publicada' }));
+      pushHistory('Re-publicada');
+      Alert.alert('Listo', 'La publicación ha sido re-publicada.');
+    }
   };
 
-  const hide = () => {
+  const hide = async () => {
     if (pub.state === 'rechazada') return;
-    setPub(p => ({ ...p, state: 'rechazada' }));
-    pushHistory('Ocultada (rechazada)');
-    Alert.alert('Oculta', 'La publicación fue ocultada al público.');
+    if (await rechazarPublicacion(pub.id)) {
+      setPub(p => ({ ...p, state: 'rechazada' }));
+      pushHistory('Ocultada (rechazada)');
+      Alert.alert('Oculta', 'La publicación fue ocultada al público.');
+    }
   };
 
-  const remove = () => {
+  const remove = async () => {
     Alert.alert(
       'Borrar publicación',
       '¿Seguro que deseas borrar esta publicación? Esta acción es definitiva.',
@@ -96,10 +110,12 @@ export default function AdminPublicationDetallScreen({ route, navigation }) {
         {
           text: 'Borrar',
           style: 'destructive',
-          onPress: () => {
-            pushHistory('Borrada definitivamente');
-            Alert.alert('Eliminada', 'La publicación fue eliminada.');
-            navigation.goBack();
+          onPress: async () => {
+            if (await eliminarPublicacion(pub.id)) {
+              pushHistory('Borrada definitivamente');
+              Alert.alert('Eliminada', 'La publicación fue eliminada.');
+              navigation.goBack();
+            }
           },
         },
       ]

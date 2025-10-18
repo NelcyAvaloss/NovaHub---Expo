@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import s from './AdminPublicationsListScreen.styles';
-import { obtenerPublicaciones } from '../services/AdminPublicacionesService';
+import { obtenerPublicaciones,aprobarPublicacion, rechazarPublicacion, eliminarPublicacion } from '../services/AdminPublicacionesService';
 
 // MOCK inicial (sin "pendiente")
 const INITIAL = [
@@ -109,9 +109,21 @@ React.useEffect(() => {
       : { box: s.badgeRed, text: s.badgeTextDanger, band: s.bandRed, dot: s.dotRed, icon: 'close-circle' };
 
   // ===== Acciones =====
-  const republish = (id) => setItems(prev => prev.map(p => (p.id === id ? { ...p, state: 'publicada' } : p)));
-  const reject    = (id) => setItems(prev => prev.map(p => (p.id === id ? { ...p, state: 'rechazada' } : p)));
-  const remove    = (id) => setItems(prev => prev.filter(p => p.id !== id));
+  const republish = async (id) => {
+    if (await aprobarPublicacion(id)) {
+      setItems(prev => prev.map(p => (p.id === id ? { ...p, state: 'publicada' } : p)));
+    }
+  }
+  const reject    = async (id) => {
+    if (await rechazarPublicacion(id)) {
+      setItems(prev => prev.map(p => (p.id === id ? { ...p, state: 'rechazada' } : p)));
+    }
+  };
+  const remove    = async (id) => {
+    if (await eliminarPublicacion(id)) {
+    setItems(prev => prev.filter(p => p.id !== id));
+    }
+  }
 
   const toggleSelect = (id) => {
     setSelected(prev => {
