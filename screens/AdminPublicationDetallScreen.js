@@ -53,8 +53,10 @@ export default function AdminPublicationDetallScreen({ route, navigation }) {
   React.useEffect(() => {
     async function fetchData() {
       const data = await obtenerDetallePublicacion(pubId);
+      console.log('Detalles de publicación obtenidos:', data);
       setPub(data);
     }
+    console.log('Obteniendo detalles de publicación para ID:', pubId);
     fetchData();
   }, []);
 

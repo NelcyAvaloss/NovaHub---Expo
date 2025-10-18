@@ -39,82 +39,93 @@ export async function eliminarPublicacion(id) {
 }
 
 
+// ...existing code...
 export async function obtenerDetallePublicacion(id) {
-    //Data de la publicación
-    const { pub, error: errorPub } = await supabase
-        .from('Publicaciones')
-        .select('*')
-        .eq('id', id)
-        .single();
-    if (errorPub) {
-        console.error('Error al obtener detalle de publicación:', error);
+    try {
+        //Data de la publicación
+        console.log('A');
+        const { data: pub, error: errorPub } = await supabase
+            .from('Publicaciones')
+            .select('*')
+            .eq('id', id)
+            .single();
+        if (errorPub || !pub) {
+            console.error('Error al obtener detalle de publicación:', errorPub);
+            return null;
+        }
+
+        //Cantidad de comentarios (solo count)
+        const { count: commentsCount, error: errorComentarios } = await supabase
+            .from('Comentarios')
+            .select('id', { count: 'exact', head: true })
+            .eq('id_publicacion', id);
+        if (errorComentarios) {
+            console.error('Error al obtener cantidad de comentarios:', errorComentarios);
+            return null;
+        }
+
+        //Cantidad de likes y dislikes (valor = 1 o -1) usando head para solo count
+        const { count: likesCount, error: errorLikes } = await supabase
+            .from('votos')
+            .select('*', { count: 'exact', head: true })
+            .eq('id_publicacion', id)
+            .eq('valor', 1);
+        if (errorLikes) {
+            console.error('Error al obtener cantidad de likes:', errorLikes);
+            return null;
+        }
+
+        const { count: dislikesCount, error: errorDislikes } = await supabase
+            .from('votos')
+            .select('*', { count: 'exact', head: true })
+            .eq('id_publicacion', id)
+            .eq('valor', -1);
+        if (errorDislikes) {
+            console.error('Error al obtener cantidad de dislikes:', errorDislikes);
+            return null;
+        }
+
+        //Cantidad de reportes (De momento no se usa)
+        const reports = 0;
+        //portada
+        console.log('B');
+
+        //Usuario que publicó (se obtiene a partir del id de usuario en la publicación)
+        const { data: user, error: errorUsuario } = await supabase
+                .from('usuarios')
+                .select('nombre')
+                .eq('id', pub.id_autor)
+                .single();
+        console.log('C');
+
+        if (errorUsuario || !user) {
+            console.error('Error al obtener usuario de la publicación:', errorUsuario);
+            return null;
+        }
+        return {
+            id: pub.id,
+            title: pub.titulo,
+            author: user.nombre,
+            authorId: pub.id_usuario,
+            state: pub.estado_revision,
+            body: pub.descripcion,
+            createdAt: pub.created_at,
+            category: pub.categoria,
+            area: pub.area,
+            tags: [],
+            reports: reports,
+            previewUri: null,
+            comments: commentsCount,
+            likes: likesCount,
+            dislikes: dislikesCount,
+            equipo_colaborador: pub.equipo_colaborador,
+        };
+    } catch (err) {
+        console.error('Error inesperado en obtenerDetallePublicacion:', err);
         return null;
     }
-
-    //Cantidad de comentarios
-    const { comments, error: errorComentarios } = await supabase
-        .from('Comentarios')
-        .select('id', { count: 'exact' })
-        .eq('id_publicacion', id);
-    if (errorComentarios) {
-        console.error('Error al obtener cantidad de comentarios:', errorComentarios);
-        return null;
-    }
-
-    //Cantidad de likes y dislikes (Es like si el campo valor es 1 y dislike si es -1)
-    const { likes, error: errorLikes } = await supabase
-  .from('votos')
-  .select('*', { count: 'exact', head: true })
-  .eq('id_publicacion', id)
-  .eq('valor', 1);
-    if (errorLikes) {
-        console.error('Error al obtener cantidad de likes:', errorLikes);
-        return null;
-    }
-
-    const { dislikes, error: errorDislikes } = await supabase
-        .from('votos')
-        .select('*', { count: 'exact', head: true })
-        .eq('id_publicacion', id)
-        .eq('valor', -1);
-    if (errorDislikes) {
-        console.error('Error al obtener cantidad de dislikes:', errorDislikes);
-        return null;
-    }
-
-    //Cantidad de reportes (De momento no se usa)
-    const reports =0;
-    //portada
-
-    //Usuario que publicó (se obtiene a partir del id de usuario en la publicación)
-    const { user, error: errorUsuario } = await supabase
-        .from('usuarios')
-        .select('nombre')
-        .eq('id', pub.id_usuario)
-        .single();
-    if (errorUsuario) {
-        console.error('Error al obtener usuario de la publicación:', errorUsuario);
-        return null;
-    }
-    return {
-        id: pub.id,
-        title: pub.titulo,
-        author: user.nombre,
-        authorId: pub.id_usuario,
-        state: pub.estado_revision,
-        body: pub.descripcion,
-        createdAt: pub.created_at,
-        category: pub.categoria,
-        area: pub.area,
-        tags: [],
-        reports: reports,
-        previewUri: null,
-        comments: comments,
-        likes: likes,
-        dislikes: dislikes,
-        equipo_colaborador: pub.equipo_colaborador,
-    };
 }
+
 
 export async function obtenerPublicaciones() {
     const { data, error } = await supabase
