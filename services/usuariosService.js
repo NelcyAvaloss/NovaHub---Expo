@@ -111,7 +111,10 @@ export async function actualizarEstadoUsuario(id, nextEstado) {
 }
 
 export async function eliminarUsuario(id) {
-  const { error } = await supabase.from("usuarios").delete().eq("id", id);
+  const { error } = await supabase
+    .from("Decisiones_en_usuarios")
+    .insert({ id_usuario: id, accion: 'eliminar' });
+    
   if (error) return { ok: false, error };
   return { ok: true };
 }
