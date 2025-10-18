@@ -80,10 +80,8 @@ export async function obtenerUsuarioPorId(id) {
 
 export async function actualizarEstadoUsuario(id, nextEstado) {
   const { error } = await supabase
-    .from("usuarios")
-    .update({ estado: nextEstado })
-    .eq("id", id);
-
+    .from("Decisiones_en_usuarios")
+    .insert({ id_usuario: id, accion: (nextEstado === "activo" ? "activar" : "bloquear") });
   if (error) return { ok: false, error };
   return { ok: true };
 }
