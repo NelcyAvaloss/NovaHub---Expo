@@ -11,7 +11,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
-  StyleSheet,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Pdf from 'react-native-pdf';
@@ -21,7 +20,7 @@ import * as IntentLauncher from 'expo-intent-launcher';
 import styles, { reportModalStyles as rstyles } from './DetallePublicacion.styles';
 import { supabase } from './supabase';
 
-// 🔔 servicio de reportes
+// Servicio de reportes (nombre correcto)
 import {
   crearReporte,
   REPORT_REASONS,
@@ -49,30 +48,22 @@ export default function DetallePublicacionScreen({ route, navigation }) {
   const [pdfFailed, setPdfFailed] = useState(false);
   const [falloWebViewLocal, setFalloWebViewLocal] = useState(false);
 
-  // 💬 Comentarios locales
+  // Comentarios
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
-
-  // Responder a un comentario (primer nivel)
   const [replyTo, setReplyTo] = useState(null);
   const [replyText, setReplyText] = useState('');
   const replyInputRef = useRef(null);
 
-  // Responder a una respuesta (segundo nivel)
   const [replyToChild, setReplyToChild] = useState(null); // { commentId, replyId }
   const [childReplyText, setChildReplyText] = useState('');
   const childReplyInputRef = useRef(null);
 
   const [usuarioActual, setUsuarioActual] = useState(null);
 
-  // 👀 IDs reportados por mí (para desactivar botón y mostrar badge)
-  const [reportedMap, setReportedMap] = useState({
-    comment: {},
-    reply: {},
-    subreply: {},
-  });
+  // Para mostrar “Reportado” y desactivar botones (si la tabla soporta reportado_por)
+  const [reportedMap, setReportedMap] = useState({ comment: {}, reply: {}, subreply: {}, post: {} });
 
-  // Altura dinámica del teclado
   const [kbPadding, setKbPadding] = useState(0);
   useEffect(() => {
     const onShow = Keyboard.addListener('keyboardDidShow', e =>
@@ -82,7 +73,6 @@ export default function DetallePublicacionScreen({ route, navigation }) {
 
     obtenerComentarios();
 
-    // Realtime: Comentarios
     const comentarioSub = supabase
       .channel('Comentarios')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'Comentarios' }, () => {
@@ -90,7 +80,6 @@ export default function DetallePublicacionScreen({ route, navigation }) {
       })
       .subscribe();
 
-    // Realtime: Respuestas
     const respuestaSub = supabase
       .channel('Respuestas')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'Respuestas' }, () => {
@@ -98,7 +87,6 @@ export default function DetallePublicacionScreen({ route, navigation }) {
       })
       .subscribe();
 
-    // Realtime: Sub_Respuestas
     const subRespuestaSub = supabase
       .channel('Sub_Respuestas')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'Sub_Respuestas' }, () => {
@@ -117,8 +105,10 @@ export default function DetallePublicacionScreen({ route, navigation }) {
 
   const isRemote = useMemo(() => /^https?:\/\//i.test(pdfUri || ''), [pdfUri]);
   const isPDF = useMemo(() => (pdfUri || '').toLowerCase().endsWith('.pdf'), [pdfUri]);
-  const colaboradores = useMemo(() => (equipo_colaborador || '')
-    .split(',').map(s => s.trim()).filter(Boolean), [equipo_colaborador]);
+  const colaboradores = useMemo(
+    () => (equipo_colaborador || '').split(',').map(s => s.trim()).filter(Boolean),
+    [equipo_colaborador]
+  );
 
   const webSource = useMemo(() => {
     if (!pdfUri) return null;
@@ -142,32 +132,24 @@ export default function DetallePublicacionScreen({ route, navigation }) {
     }
   }, [pdfUri]);
 
-  // ===== Helpers de usuario =====
   const obtenerUsuarioActual = async () => {
     const { data } = await supabase.auth.getUser();
     return { id: data?.user?.id, nombre: data?.user?.user_metadata?.full_name };
   };
 
-  // ===== Fetch Comentarios + mapa de reportados =====
   const obtenerComentarios = async () => {
     try {
       const { data, error } = await supabase
         .from('Comentarios')
         .select(`
-          id,
-          contenido,
-          created_at,
+          id, contenido, created_at,
           usuario:usuarios ( nombre, id ),
           respuestas:Respuestas (
-            id,
-            contenido,
-            created_at,
+            id, contenido, created_at,
             usuario:usuarios ( nombre, id ),
             sub_respuestas:Sub_Respuestas (
-              id,
-              contenido,
-              created_at,
-              usuario:usuarios ( nombre, id)
+              id, contenido, created_at,
+              usuario:usuarios ( nombre, id )
             )
           )
         `)
@@ -179,7 +161,6 @@ export default function DetallePublicacionScreen({ route, navigation }) {
       const usuario = await obtenerUsuarioActual();
       setUsuarioActual(usuario);
 
-      // Transformar para UI
       const comentariosFormateados = (data || []).map(c => ({
         id: c.id,
         text: c.contenido,
@@ -201,19 +182,19 @@ export default function DetallePublicacionScreen({ route, navigation }) {
 
       setComments(comentariosFormateados);
 
-      // ====== cargar "ya reportados por mí" para mostrar badge/deshabilitar
+      // Si la tabla soporta reportado_por, esto llenará los badges/locks; si no, quedarán vacíos
       const commentIds = comentariosFormateados.map(c => c.id);
       const replyIds = comentariosFormateados.flatMap(c => c.replies?.map(r => r.id) || []);
       const subreplyIds = comentariosFormateados.flatMap(c =>
         c.replies?.flatMap(r => r.childReplies?.map(cr => cr.id) || []) || []
       );
-
       const sets = await misReportesParaTargets({ commentIds, replyIds, subreplyIds });
-      setReportedMap({
+      setReportedMap(prev => ({
+        ...prev,
         comment: setToObj(sets.comment),
         reply: setToObj(sets.reply),
         subreply: setToObj(sets.subreply),
-      });
+      }));
     } catch (e) {
       console.error('Error al obtener comentarios:', e);
     }
@@ -224,9 +205,9 @@ export default function DetallePublicacionScreen({ route, navigation }) {
     if (!set || typeof set.forEach !== 'function') return obj;
     set.forEach(v => { obj[String(v)] = true; });
     return obj;
-  };
+    };
 
-  // ===== Crear comentario
+  // Crear comentario
   const handleAddComment = useCallback(async () => {
     const text = newComment.trim();
     if (!text) return;
@@ -258,7 +239,7 @@ export default function DetallePublicacionScreen({ route, navigation }) {
     }
   }, [newComment, id]);
 
-  // ===== Responder (primer nivel)
+  // Responder (primer nivel)
   const startReply = useCallback((commentId) => {
     setReplyTo(commentId);
     setReplyText('');
@@ -313,7 +294,7 @@ export default function DetallePublicacionScreen({ route, navigation }) {
     }
   }, [replyText, replyTo]);
 
-  // ===== Responder a respuesta (segundo nivel)
+  // Responder a respuesta (segundo nivel)
   const startReplyToReply = useCallback((commentId, replyId) => {
     setReplyTo(null);
     setReplyText('');
@@ -373,14 +354,12 @@ export default function DetallePublicacionScreen({ route, navigation }) {
     }
   }, [childReplyText, replyToChild]);
 
-  // ==========================
-  //      Reportes (UI)
-  // ==========================
+  // ======= Reportes =======
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState(REPORT_REASONS[0]);
   const [reportNote, setReportNote] = useState('');
   const [sendingReport, setSendingReport] = useState(false);
-  const [reportTarget, setReportTarget] = useState(null); // { type: 'comment'|'reply'|'subreply', id: string }
+  const [reportTarget, setReportTarget] = useState(null); // { type: 'post'|'comment'|'reply'|'subreply', id: string }
 
   const openReport = (type, targetId) => {
     setReportTarget({ type, id: String(targetId) });
@@ -398,7 +377,6 @@ export default function DetallePublicacionScreen({ route, navigation }) {
       const res = await crearReporte({
         target: reportTarget.type,
         targetId: reportTarget.id,
-        postId: id,
         reason: reportReason,
         details: reportNote,
       });
@@ -416,10 +394,11 @@ export default function DetallePublicacionScreen({ route, navigation }) {
         return;
       }
 
-      // Actualiza badge local
+      // Marcar localmente como reportado (post/comment/reply/subreply)
       setReportedMap(prev => {
         const out = { ...prev };
-        out[reportTarget.type] = { ...out[reportTarget.type], [reportTarget.id]: true };
+        const t = reportTarget.type;
+        out[t] = { ...(out[t] || {}), [reportTarget.id]: true };
         return out;
       });
 
@@ -428,27 +407,14 @@ export default function DetallePublicacionScreen({ route, navigation }) {
       setReportReason(REPORT_REASONS[0]);
       setReportNote('');
       Alert.alert('Gracias', 'Tu reporte fue enviado.');
-    } catch (e) {
+    } catch {
       Alert.alert('Error', 'No se pudo enviar el reporte.');
     } finally {
       setSendingReport(false);
     }
   };
 
-  // ==========================
-  //        RENDER
-  // ==========================
-  if (!publicacion) {
-    return (
-      <View style={[styles.flex, styles.center, { backgroundColor: '#0c111b' }]}>
-        <Text style={styles.errorText}>Publicación no encontrada.</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backIcon}>↩</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
+  // ===== Render =====
   return (
     <KeyboardAvoidingView
       style={[styles.flex, { backgroundColor: '#0c111b' }]}
@@ -456,7 +422,6 @@ export default function DetallePublicacionScreen({ route, navigation }) {
       keyboardVerticalOffset={Platform.select({ ios: 64, android: 0 })}
     >
       <View style={styles.wrapper}>
-        {/* Volver */}
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} activeOpacity={0.7}>
           <Text style={styles.backIcon}>↩</Text>
         </TouchableOpacity>
@@ -473,12 +438,10 @@ export default function DetallePublicacionScreen({ route, navigation }) {
             keyboardShouldPersistTaps="always"
             overScrollMode="never"
           >
-            {/* Portada */}
             {!!portadaUri && (
               <Image source={{ uri: portadaUri }} style={styles.portada} resizeMode="cover" />
             )}
 
-            {/* Info */}
             {!!titulo && <Text style={styles.titulo}>{titulo}</Text>}
             {!!autor && <Text style={styles.autor}>por {autor}</Text>}
 
@@ -487,7 +450,6 @@ export default function DetallePublicacionScreen({ route, navigation }) {
               {!!area && <Text style={styles.chip}>#{area}</Text>}
             </View>
 
-            {/* Colaboradores */}
             {colaboradores.length > 0 && (
               <View style={styles.collabBlock}>
                 <Text style={styles.collabLabel}>Colaboradores</Text>
@@ -508,7 +470,6 @@ export default function DetallePublicacionScreen({ route, navigation }) {
 
             {!!descripcion && <Text style={styles.descripcion}>{descripcion}</Text>}
 
-            {/* Ver documento */}
             {!!pdfUri && (
               <TouchableOpacity
                 style={styles.primaryBtn}
@@ -519,9 +480,19 @@ export default function DetallePublicacionScreen({ route, navigation }) {
               </TouchableOpacity>
             )}
 
-            {/* ====================== */}
-            {/*     COMENTARIOS        */}
-            {/* ====================== */}
+            {/* NUEVO: Reportar publicación */}
+            <TouchableOpacity
+              style={[styles.primaryBtn, { backgroundColor: '#ef4444', marginTop: 10 }]}
+              onPress={() => openReport('post', id)}
+              activeOpacity={reportedMap.post?.[String(id)] ? 1 : 0.85}
+              disabled={!!reportedMap.post?.[String(id)]}
+            >
+              <Text style={styles.primaryBtnText}>
+                {reportedMap.post?.[String(id)] ? 'Publicación reportada' : 'Reportar publicación'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Comentarios */}
             <View style={styles.commentSection}>
               <Text style={styles.commentTitle}>Comentarios ({comments.length})</Text>
 
@@ -547,7 +518,7 @@ export default function DetallePublicacionScreen({ route, navigation }) {
                 </TouchableOpacity>
               </View>
 
-              {/* Lista de comentarios */}
+              {/* Lista */}
               {comments.map((c) => (
                 <View key={c.id} style={styles.commentItem}>
                   <View style={styles.commentHeaderRow}>
@@ -587,7 +558,7 @@ export default function DetallePublicacionScreen({ route, navigation }) {
                         </TouchableOpacity>
                       </View>
 
-                      {/* Primer nivel de respuestas */}
+                      {/* Respuestas */}
                       {!!c.replies?.length && (
                         <View style={styles.replyList}>
                           {c.replies.map((r) => (
@@ -612,7 +583,6 @@ export default function DetallePublicacionScreen({ route, navigation }) {
                                   <Text style={styles.commentBody}>{r.text}</Text>
                                 </View>
 
-                                {/* Acciones */}
                                 <View style={styles.commentActionsRow}>
                                   <TouchableOpacity onPress={() => startReplyToReply(c.id, r.id)} activeOpacity={0.7}>
                                     <Text style={styles.replyBtnText}>Responder</Text>
@@ -708,7 +678,7 @@ export default function DetallePublicacionScreen({ route, navigation }) {
                         </View>
                       )}
 
-                      {/* Caja de respuesta activa (primer nivel) */}
+                      {/* Caja de respuesta (primer nivel) */}
                       {replyTo === c.id && (
                         <View style={styles.replyBox}>
                           <TextInput
@@ -744,7 +714,6 @@ export default function DetallePublicacionScreen({ route, navigation }) {
           </ScrollView>
         ) : (
           <View style={styles.viewerWrap}>
-            {/* 1) Visor PDF nativo */}
             {isPDF && !!pdfUri && !pdfFailed && (
               <Pdf
                 source={isRemote ? { uri: pdfUri, cache: true } : { uri: pdfUri }}
@@ -755,7 +724,6 @@ export default function DetallePublicacionScreen({ route, navigation }) {
               />
             )}
 
-            {/* 2) WebView (no-PDF o fallback) */}
             {!!webSource && (!isPDF || pdfFailed) && !falloWebViewLocal && (
               <WebView
                 source={webSource}
@@ -768,7 +736,6 @@ export default function DetallePublicacionScreen({ route, navigation }) {
               />
             )}
 
-            {/* 3) Fallback local → visor del sistema */}
             {isPDF && !isRemote && !!pdfUri && (pdfFailed || falloWebViewLocal) && (
               <View style={[styles.flex, styles.center, styles.fallback]}>
                 <Text style={styles.fallbackText}>No se pudo mostrar el PDF local dentro de la app.</Text>
@@ -789,36 +756,41 @@ export default function DetallePublicacionScreen({ route, navigation }) {
         )}
       </View>
 
-      {/* ===== Modal Reporte ===== */}
+      {/* Modal de reporte */}
       {reportOpen && (
         <View style={rstyles.modalBackdrop}>
           <View style={rstyles.modalSheet}>
             <Text style={rstyles.modalTitle}>
-              Reportar {reportTarget?.type === 'comment' ? 'comentario' : reportTarget?.type === 'reply' ? 'respuesta' : 'sub-respuesta'}
+              Reportar {reportTarget?.type === 'post'
+                ? 'publicación'
+                : reportTarget?.type === 'comment'
+                ? 'comentario'
+                : reportTarget?.type === 'reply'
+                ? 'respuesta'
+                : 'sub-respuesta'}
             </Text>
             <Text style={rstyles.modalSub}>Selecciona un motivo</Text>
 
             <View style={{ marginTop: 10 }}>
               {REPORT_REASONS.map((key) => (
-  <TouchableOpacity
-    key={key}
-    style={rstyles.radioRow}
-    onPress={() => setReportReason(key)}
-    activeOpacity={0.8}
-  >
-    <View style={[rstyles.radioOuter, reportReason === key && rstyles.radioOuterActive]}>
-      {reportReason === key && <View style={rstyles.radioInner} />}
-    </View>
-    <Text style={rstyles.radioLabel}>
-      {key === 'spam' ? 'Spam'
-        : key === 'agresion' ? 'Agresión'
-        : key === 'nsfw' ? 'NSFW (contenido sensible)'
-        : key === 'contenido_enganoso' ? 'Contenido engañoso'
-        : 'Reporte sin clasificar'}
-    </Text>
-  </TouchableOpacity>
-))}
-
+                <TouchableOpacity
+                  key={key}
+                  style={rstyles.radioRow}
+                  onPress={() => setReportReason(key)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[rstyles.radioOuter, reportReason === key && rstyles.radioOuterActive]}>
+                    {reportReason === key && <View style={rstyles.radioInner} />}
+                  </View>
+                  <Text style={rstyles.radioLabel}>
+                    {key === 'spam' ? 'Spam'
+                      : key === 'agresion' ? 'Agresión'
+                      : key === 'nsfw' ? 'NSFW (contenido sensible)'
+                      : key === 'contenido_enganoso' ? 'Contenido engañoso'
+                      : 'Reporte sin clasificar'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
 
             <TextInput
