@@ -786,7 +786,7 @@ export default function DetallePublicacionScreen({ route, navigation }) {
                     {key === 'spam' ? 'Spam'
                       : key === 'agresion' ? 'Agresión'
                       : key === 'nsfw' ? 'NSFW (contenido sensible)'
-                      : key === 'contenido_enganoso' ? 'Contenido engañoso'
+                      : key === 'contenido engañoso' ? 'Contenido engañoso'
                       : 'Reporte sin clasificar'}
                   </Text>
                 </TouchableOpacity>
