@@ -1,4 +1,3 @@
-// screens/HomeScreen.js
 import React, { useRef, useCallback, useEffect, useState } from 'react';
 import {
   FlatList,

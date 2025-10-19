@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   Alert,
   TextInput,
-  Animated, // ⬅️ necesario para la animación del botón central
+  Animated, 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import s, { ls, reportStyles as rs } from './PerfilUsuarioScreen.styles';
@@ -61,7 +61,7 @@ export default function PerfilUsuarioScreen({ navigation, route }) {
   const [loadedFollowers, setLoadedFollowers] = useState(false);
   const [loadedFollowing, setLoadedFollowing] = useState(false);
 
-  // ====== Refs y animación para el menú flotante (igual a Home) ======
+  // ====== Refs y animación para el menú flotante  ======
   const flatListRef = useRef(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -89,7 +89,7 @@ export default function PerfilUsuarioScreen({ navigation, route }) {
           .limit(100);
 
         if (perfil?.id) {
-          // Ajusta el nombre de la FK si tu columna difiere
+          
           query = query.eq('id_usuario', perfil.id);
         }
 
@@ -291,7 +291,7 @@ export default function PerfilUsuarioScreen({ navigation, route }) {
     setLoadedFollowing(true);
   };
 
-  // ========= Tarjeta de publicación (idéntica, con menú ⋮ de reportes) =========
+  // ========= Tarjeta de publicación (con menú ⋮ de reportes) =========
   const renderItem = useCallback(
     ({ item }) => {
       const colaboradores = (item?.equipo_colaborador || '')
@@ -336,7 +336,7 @@ export default function PerfilUsuarioScreen({ navigation, route }) {
               </TouchableOpacity>
             </View>
 
-            {/* Menú ⋮ con Reportar/Cancelar (igual a Home) */}
+            {/* Menú ⋮ con Reportar/Cancelar */}
             {menuPubId === item.id && (
               <View style={ls.kebabMenu}>
                 <TouchableOpacity
@@ -477,7 +477,7 @@ export default function PerfilUsuarioScreen({ navigation, route }) {
         />
       );
     }
-    // publicaciones (⬅️ le pongo el ref para que el botón Home haga scrollTop)
+    
     return (
       <FlatList
         ref={flatListRef}
@@ -579,7 +579,7 @@ export default function PerfilUsuarioScreen({ navigation, route }) {
       {/* CONTENIDO SEGÚN PESTAÑA */}
       {content}
 
-      {/* ====== MENÚ FLOTANTE INFERIOR (idéntico al de Home) ====== */}
+      {/* ====== MENÚ FLOTANTE INFERIOR ====== */}
       <View style={homeStyles.bottomNav}>
         <TouchableOpacity
           onPress={() => {
@@ -614,7 +614,7 @@ export default function PerfilUsuarioScreen({ navigation, route }) {
         </TouchableOpacity>
       </View>
 
-      {/* ===== Modal Reporte (igual a Home) ===== */}
+      {/* ===== Modal Reporte ===== */}
       {reportModalOpen && (
         <View style={rs.modalBackdrop}>
           <View style={rs.modalSheet}>
@@ -663,8 +663,7 @@ export default function PerfilUsuarioScreen({ navigation, route }) {
                 style={rs.modalBtnPrimary}
                 onPress={() => {
                   if (!reportTarget?.id) { setReportModalOpen(false); return; }
-                  // Si quieres obligar nota en "sin_clasificar":
-                  // if (reportReason === 'sin_clasificar' && !reportNote.trim()) { Alert.alert('Nota requerida','Describe brevemente el motivo.'); return; }
+                 
                   reportarPublicacion(reportTarget.id, reportReason, reportNote);
                 }}
               >

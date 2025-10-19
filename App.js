@@ -1,4 +1,3 @@
-// App.js
 import 'react-native-gesture-handler';
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
@@ -45,15 +44,16 @@ import AdminHilosSoporteScreen from './screens/AdminHilosSoporteScreen';
 const RootStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-/** RUTA INICIAL (ajusta a lo que necesites) **/
+/** RUTA INICIAL **/
 // Opción fija:
 const INITIAL_ROUTE = 'Login';
-// Opción condicional (descomenta si prefieres):
+
+// Opción condicional MODO DESARROLLO:
 // const INITIAL_ROUTE = __DEV__ ? 'PerfilUsuario' : 'Bienvenido';
 
 /* --------- Tabs del Panel de Administración --------- */
 function AdminTabs() {
-  // Tab inicial del panel (puedes cambiarlo a 'AdminUsers' si quieres)
+  // Tab inicial del panel 
   const ADMIN_INITIAL_TAB = 'AdminDashboard';
 
   return (

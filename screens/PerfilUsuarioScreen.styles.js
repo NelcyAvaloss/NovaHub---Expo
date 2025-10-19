@@ -144,7 +144,7 @@ export const ls = StyleSheet.create({
   kebabItemText: { color: '#0f172a', fontSize: 14 },
 });
 
-// Estilos del modal de reportes (calcado de Home)
+// Estilos del modal de reportes 
 export const reportStyles = StyleSheet.create({
   modalBackdrop: {
     position: 'absolute',
