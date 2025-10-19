@@ -783,10 +783,13 @@ export default function DetallePublicacionScreen({ route, navigation }) {
                     {reportReason === key && <View style={rstyles.radioInner} />}
                   </View>
                   <Text style={rstyles.radioLabel}>
-                    {key === 'spam' ? 'Spam'
-                      : key === 'agresion' ? 'Agresión'
-                      : key === 'nsfw' ? 'NSFW (contenido sensible)'
-                      : key === 'contenido engañoso' ? 'Contenido engañoso'
+                    {key === 'Spam' ? 'Spam'
+                      : key === 'Acoso/Agresión' ? 'Agresión'
+                      : key === 'NSFW' ? 'NSFW (contenido sensible)'
+                      : key === 'Contenido engañoso' ? 'Contenido engañoso'
+                      : key === 'Lenguaje ofensivo' ? 'Lenguaje ofensivo'
+                      : key === 'Seguridad' ? 'Problema de seguridad'
+                      : key === 'Privacidad' ? 'Problema de privacidad'
                       : 'Reporte sin clasificar'}
                   </Text>
                 </TouchableOpacity>

@@ -6,11 +6,14 @@ import { supabase } from "../screens/supabase";
 
 /** Motivos válidos (deben calzar con tu enum report_reason en Supabase) */
 export const REPORT_REASONS = [
-  "spam",
-  "agresion",
-  "nsfw",
-  "contenido engañoso",
-  "sin clasificar",
+  "Spam",
+  "Lenguaje ofensivo",
+  "Acoso/Agresión",
+  "NSFW",
+  "Contenido engañoso",
+  "Seguridad",
+  "Privacidad",
+  "Otro",
 ];
 
 const conversionTipoObjetivo = {
