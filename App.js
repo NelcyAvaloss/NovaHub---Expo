@@ -21,6 +21,7 @@ import RecupPasswordScreen from './screens/RecupPasswordScreen';
 import ConfirmRecupScreen from './screens/ConfirmRecupScreen';
 import DetallePublicacionScreen from './screens/DetallePublicacionScreen';
 import RankingScreen from './screens/RankingScreen';
+import PerfilUsuarioScreen from './screens/PerfilUsuarioScreen';
 
 /* --------- ADMIN (tabs + detall) --------- */
 import AdminDashboardScreen from './screens/AdminDashboardScreen';
@@ -53,10 +54,10 @@ const Tab = createBottomTabNavigator();
 
 
 /** En DEV arranca en el panel, en PROD en Bienvenido */
- const INITIAL_ROUTE = __DEV__ ? 'AdminPanel' : 'Bienvenido';
+/*const INITIAL_ROUTE = __DEV__ ? 'PerfilUsuario' : 'Bienvenido';
 
 /*  RUTA OFICIAL A LA PUBLICA, SALIR DE MODO DESARROLLADOR */
- /* const INITIAL_ROUTE = 'Login'; */
+ const INITIAL_ROUTE = 'Login';
 
 
 
@@ -65,7 +66,7 @@ const Tab = createBottomTabNavigator();
 /* --------- Tabs del Panel de Administración --------- */
 function AdminTabs() {
   /** En DEV abre el tab de Usuarios; en PROD el Dashboard */
-  const ADMIN_INITIAL_TAB = 'AdminDashboard';
+ const ADMIN_INITIAL_TAB = 'AdminDashboard'; 
 
 
 
@@ -168,6 +169,7 @@ export default function App() {
             <RootStack.Screen name="CrearPublicacion" component={CrearPublicacionScreen} />
             <RootStack.Screen name="DetallePublicacion" component={DetallePublicacionScreen} />
             <RootStack.Screen name="Ranking" component={RankingScreen} />
+            <RootStack.Screen name="PerfilUsuario" component={PerfilUsuarioScreen} />
 
             {/* --------- Panel de Administración (tabs) --------- */}
             <RootStack.Screen name="AdminPanel" component={AdminTabs} />

@@ -191,6 +191,29 @@ export default function HomeScreen({ navigation }) {
     [navigation]
   );
 
+  // ======= Navegar al perfil del autor al tocar el NOMBRE =======
+  const getAuthorIdFromItem = (item) => {
+    // Intenta detectar el id del autor si tu fila lo trae
+    return (
+      item?.id_usuario ??
+      item?.usuario_id ??
+      item?.user_id ??
+      item?.autor_id ??
+      item?.author_id ??
+      null
+    );
+  };
+
+  const openPerfilAutor = useCallback((item) => {
+    const perfil = {
+      id: getAuthorIdFromItem(item),         // puede ser null si no viene en la fila
+      nombre: item?.autor || 'Autor',        // el nombre que ya muestras en Home
+      email: null,
+      avatarUri: null,
+    };
+    navigation.navigate('PerfilUsuario', { perfil });
+  }, [navigation]);
+
   const obtenerPublicaciones = async () => {
     const { data, error } = await supabase
       .from('Publicaciones')
@@ -332,7 +355,9 @@ export default function HomeScreen({ navigation }) {
   const renderItem = useCallback(
     ({ item }) => {
       const colaboradores = (item?.equipo_colaborador || '')
-        .split(',').map((s) => s.trim()).filter(Boolean);
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
 
       const v = votesMap[item.id] || {
         likes: item.likes_count ?? item.likes ?? 0,
@@ -353,9 +378,16 @@ export default function HomeScreen({ navigation }) {
               </View>
 
               <View style={styles.headerText}>
-                <Text style={styles.nombreAutor} numberOfLines={1}>
-                  {item.autor || 'Autor'}
-                </Text>
+                {/* NOMBRE TOCABLE -> navega a PerfilUsuario */}
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => openPerfilAutor(item)}
+                >
+                  <Text style={styles.nombreAutor} numberOfLines={1}>
+                    {item.autor || 'Autor'}
+                  </Text>
+                </TouchableOpacity>
+
                 <Text style={styles.fechaTexto}>
                   {item.created_at ? new Date(item.created_at).toLocaleDateString() : 'Ahora'}
                 </Text>
@@ -470,7 +502,7 @@ export default function HomeScreen({ navigation }) {
         </View>
       );
     },
-    [applyVote, irADetalle, votesMap, menuPubId]
+    [applyVote, irADetalle, votesMap, menuPubId, openPerfilAutor]
   );
 
   return (
