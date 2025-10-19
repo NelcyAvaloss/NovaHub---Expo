@@ -1,3 +1,4 @@
+// screens/DetallePublicacionScreen.js
 import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
@@ -15,97 +16,22 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Pdf from 'react-native-pdf';
 import { WebView } from 'react-native-webview';
 import * as IntentLauncher from 'expo-intent-launcher';
-import styles from './DetallePublicacion.styles';
+
+import styles, { reportModalStyles as rstyles } from './DetallePublicacion.styles';
 import { supabase } from './supabase';
+
+// Servicio de reportes (nombre correcto)
+import {
+  crearReporte,
+  REPORT_REASONS,
+  misReportesParaTargets,
+} from '../services/reportpubli.service';
 
 export default function DetallePublicacionScreen({ route, navigation }) {
   const insets = useSafeAreaInsets();
   const scrollRef = useRef(null);
 
-  const publicacion = route?.params?.publicacion;
-
-  const [mostrarDoc, setMostrarDoc] = useState(false);
-  const [pdfFailed, setPdfFailed] = useState(false);
-  const [falloWebViewLocal, setFalloWebViewLocal] = useState(false);
-
-  //  Comentarios (local)
-  const [comments, setComments] = useState([]);
-  const [newComment, setNewComment] = useState('');
-
-  // Responder a un comentario (primer nivel)
-  const [replyTo, setReplyTo] = useState(null);
-  const [replyText, setReplyText] = useState('');
-  const replyInputRef = useRef(null);
-
-  //  Responder a una respuesta (segundo nivel)
-  //    { commentId, replyId } -> apunta a la respuesta a la que queremos responder
-  const [replyToChild, setReplyToChild] = useState(null);
-  const [childReplyText, setChildReplyText] = useState('');
-  const [usuarioActual, setUsuarioActual] = useState(null);
-  const childReplyInputRef = useRef(null);
-
-  //  Altura dinámica del teclado para padding inferior (evita franja blanca)
-  const [kbPadding, setKbPadding] = useState(0);
-  useEffect(() => {
-    const onShow = Keyboard.addListener('keyboardDidShow', e =>
-      setKbPadding(e.endCoordinates?.height ?? 0)
-    );
-    const onHide = Keyboard.addListener('keyboardDidHide', () => setKbPadding(0));
-
-    obtenerComentarios();
-
-    //Suscribir a cambios en Comentarios
-  const comentarioSub = supabase
-      .channel('Comentarios')
-      .on('postgres_changes', 
-        //Subscribirse a la vista que incluye el nombre del usuario
-        { event: '*', schema: 'public', table: 'Comentarios' },
-        payload => {
-          console.log('Cambio en Comentarios:', payload);
-          obtenerComentarios();
-        }
-      )
-      .subscribe((status) => {
-        console.log('Estado de suscripción Comentarios:', status);
-      });
-    //Suscribir a cambios en Respuestas
-    const respuestaSub = supabase
-      .channel('Respuestas')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'Respuestas' },
-        payload => {
-          console.log('Cambio en Respuestas:', payload);
-          obtenerComentarios();
-        }
-      )
-      .subscribe((status) => {
-        console.log('Estado de suscripción Respuestas:', status);
-      });
-    //Suscribir a cambios en Sub_Respuestas
-    const subRespuestaSub = supabase
-      .channel('Sub_Respuestas')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'Sub_Respuestas' },
-        payload => {
-          console.log('Cambio en Sub_Respuestas:', payload);
-          obtenerComentarios();
-        }
-      )
-      .subscribe((status) => {
-        console.log('Estado de suscripción Sub_Respuestas:', status);
-      });
-
-    return () => {
-      onShow.remove();
-      onHide.remove();
-      supabase.removeChannel(comentarioSub);
-      supabase.removeChannel(respuestaSub);
-      supabase.removeChannel(subRespuestaSub);
-    };
-
-  }, []);
-
-  // Campos esperados
+  const publicacion = route?.params?.publicacion || {};
   const {
     id,
     portadaUri,
@@ -116,20 +42,74 @@ export default function DetallePublicacionScreen({ route, navigation }) {
     categoria,
     area,
     equipo_colaborador,
-  } = publicacion || {};
+  } = publicacion;
+
+  const [mostrarDoc, setMostrarDoc] = useState(false);
+  const [pdfFailed, setPdfFailed] = useState(false);
+  const [falloWebViewLocal, setFalloWebViewLocal] = useState(false);
+
+  // Comentarios
+  const [comments, setComments] = useState([]);
+  const [newComment, setNewComment] = useState('');
+  const [replyTo, setReplyTo] = useState(null);
+  const [replyText, setReplyText] = useState('');
+  const replyInputRef = useRef(null);
+
+  const [replyToChild, setReplyToChild] = useState(null); // { commentId, replyId }
+  const [childReplyText, setChildReplyText] = useState('');
+  const childReplyInputRef = useRef(null);
+
+  const [usuarioActual, setUsuarioActual] = useState(null);
+
+  // Para mostrar “Reportado” y desactivar botones (si la tabla soporta reportado_por)
+  const [reportedMap, setReportedMap] = useState({ comment: {}, reply: {}, subreply: {}, post: {} });
+
+  const [kbPadding, setKbPadding] = useState(0);
+  useEffect(() => {
+    const onShow = Keyboard.addListener('keyboardDidShow', e =>
+      setKbPadding(e.endCoordinates?.height ?? 0)
+    );
+    const onHide = Keyboard.addListener('keyboardDidHide', () => setKbPadding(0));
+
+    obtenerComentarios();
+
+    const comentarioSub = supabase
+      .channel('Comentarios')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'Comentarios' }, () => {
+        obtenerComentarios();
+      })
+      .subscribe();
+
+    const respuestaSub = supabase
+      .channel('Respuestas')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'Respuestas' }, () => {
+        obtenerComentarios();
+      })
+      .subscribe();
+
+    const subRespuestaSub = supabase
+      .channel('Sub_Respuestas')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'Sub_Respuestas' }, () => {
+        obtenerComentarios();
+      })
+      .subscribe();
+
+    return () => {
+      onShow.remove();
+      onHide.remove();
+      supabase.removeChannel(comentarioSub);
+      supabase.removeChannel(respuestaSub);
+      supabase.removeChannel(subRespuestaSub);
+    };
+  }, []);
 
   const isRemote = useMemo(() => /^https?:\/\//i.test(pdfUri || ''), [pdfUri]);
   const isPDF = useMemo(() => (pdfUri || '').toLowerCase().endsWith('.pdf'), [pdfUri]);
+  const colaboradores = useMemo(
+    () => (equipo_colaborador || '').split(',').map(s => s.trim()).filter(Boolean),
+    [equipo_colaborador]
+  );
 
-  // 👥 Colaboradores
-  const colaboradores = useMemo(() => {
-    return (equipo_colaborador || '')
-      .split(',')
-      .map(s => s.trim())
-      .filter(Boolean);
-  }, [equipo_colaborador]);
-
-  // Fuente para WebView (solo no-PDF o fallback remoto)
   const webSource = useMemo(() => {
     if (!pdfUri) return null;
     if (isPDF && isRemote) {
@@ -152,108 +132,118 @@ export default function DetallePublicacionScreen({ route, navigation }) {
     }
   }, [pdfUri]);
 
-    const obtenerComentarios = async () => {
+  const obtenerUsuarioActual = async () => {
+    const { data } = await supabase.auth.getUser();
+    return { id: data?.user?.id, nombre: data?.user?.user_metadata?.full_name };
+  };
 
-      try {
-        const { data, error } = await supabase
-          .from('Comentarios')
-          .select(`
-            id,
-            contenido,
-            created_at,
+  const obtenerComentarios = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('Comentarios')
+        .select(`
+          id, contenido, created_at,
+          usuario:usuarios ( nombre, id ),
+          respuestas:Respuestas (
+            id, contenido, created_at,
             usuario:usuarios ( nombre, id ),
-            respuestas:Respuestas (
-              id,
-              contenido,
-              created_at,
-              usuario:usuarios ( nombre, id ),
-              sub_respuestas:Sub_Respuestas (
-                id,
-                contenido,
-                created_at,
-                usuario:usuarios ( nombre, id)
-              )
-            )`)
-          .eq('id_publicacion', id)
-          .order('created_at', { ascending: false });
+            sub_respuestas:Sub_Respuestas (
+              id, contenido, created_at,
+              usuario:usuarios ( nombre, id )
+            )
+          )
+        `)
+        .eq('id_publicacion', id)
+        .order('created_at', { ascending: false });
 
-        if (error) throw error;
-        // Obtener usuario actual y guardarlo en estado
-        const usuario = await obtenerUsuarioActual();
-        setUsuarioActual(usuario);
-        // Transformar data al formato esperado por el componente
-        console.log('Usuario actual:', usuarioActual);
-        const comentariosFormateados = data.map(c => ({
-          id: c.id,
-          text: c.contenido,
-          date: c.created_at,
-          //Si el id del usuario es el mismo que el del usuario actual, mostrar "Tú" como autor
-          author: c.usuario.id === usuario.id ? 'Tú' : c.usuario.nombre,
-          replies: c.respuestas.map(r => ({
-            id: r.id,
-            text: r.contenido,
-            date: r.created_at,
-            author: r.usuario.id === usuario.id ? 'Tú' : r.usuario.nombre,
-            childReplies: r.sub_respuestas.map(sr => ({
-              id: sr.id,
-              text: sr.contenido,
-              date: sr.created_at,
-              author: sr.usuario.id === usuario.id ? 'Tú' : sr.usuario.nombre,
-            })),
+      if (error) throw error;
+
+      const usuario = await obtenerUsuarioActual();
+      setUsuarioActual(usuario);
+
+      const comentariosFormateados = (data || []).map(c => ({
+        id: c.id,
+        text: c.contenido,
+        date: c.created_at,
+        author: c.usuario.id === usuario.id ? 'Tú' : c.usuario.nombre,
+        replies: (c.respuestas || []).map(r => ({
+          id: r.id,
+          text: r.contenido,
+          date: r.created_at,
+          author: r.usuario.id === usuario.id ? 'Tú' : r.usuario.nombre,
+          childReplies: (r.sub_respuestas || []).map(sr => ({
+            id: sr.id,
+            text: sr.contenido,
+            date: sr.created_at,
+            author: sr.usuario.id === usuario.id ? 'Tú' : sr.usuario.nombre,
           })),
-        }));
-        setComments(comentariosFormateados);
-      } catch (error) {
-        console.error('Error al obtener comentarios:', error);
-      }
-    };
-  
-    const obtenerUsuarioActual = async () => {
-      const { data } = await supabase.auth.getUser();
-      return { id: data.user.id, nombre: data.user.user_metadata.full_name};
+        })),
+      }));
+
+      setComments(comentariosFormateados);
+
+      // Si la tabla soporta reportado_por, esto llenará los badges/locks; si no, quedarán vacíos
+      const commentIds = comentariosFormateados.map(c => c.id);
+      const replyIds = comentariosFormateados.flatMap(c => c.replies?.map(r => r.id) || []);
+      const subreplyIds = comentariosFormateados.flatMap(c =>
+        c.replies?.flatMap(r => r.childReplies?.map(cr => cr.id) || []) || []
+      );
+      const sets = await misReportesParaTargets({ commentIds, replyIds, subreplyIds });
+      setReportedMap(prev => ({
+        ...prev,
+        comment: setToObj(sets.comment),
+        reply: setToObj(sets.reply),
+        subreply: setToObj(sets.subreply),
+      }));
+    } catch (e) {
+      console.error('Error al obtener comentarios:', e);
+    }
+  };
+
+  const setToObj = (set) => {
+    const obj = {};
+    if (!set || typeof set.forEach !== 'function') return obj;
+    set.forEach(v => { obj[String(v)] = true; });
+    return obj;
     };
 
-  //  Agregar comentario
+  // Crear comentario
   const handleAddComment = useCallback(async () => {
     const text = newComment.trim();
     if (!text) return;
     try {
-    const usuario = await obtenerUsuarioActual();
-    console.log('Usuario actual:', usuario);
-    const {data, error} = await supabase.from('Comentarios').insert([
-      {
+      const usuario = await obtenerUsuarioActual();
+      if (!usuario?.id) {
+        Alert.alert('Inicia sesión', 'Debes iniciar sesión para comentar.');
+        return;
+      }
+      const { data, error } = await supabase.from('Comentarios').insert([{
         id_publicacion: id,
         id_usuario: usuario.id,
-        contenido: text
-      }]
-    ).select(`id, contenido, created_at, usuario:usuarios ( nombre )`);
-    console.log(data);
+        contenido: text,
+      }]).select(`id, contenido, created_at, usuario:usuarios ( nombre )`);
+      if (error) throw error;
 
-    if (error) {
-      Alert.alert('Error', error.message || 'No se pudo agregar el comentario.');
-      return;
-    }
-
-    const nuevo = {
-      id: data[0].id,
-      text: data[0].contenido,
-      date: data[0].created_at,
-      author: data[0].usuario.nombre,
-      replies: [],
-    };
-    setComments(prev => [nuevo, ...prev]);
-    setNewComment('');
+      const nuevo = {
+        id: data[0].id,
+        text: data[0].contenido,
+        date: data[0].created_at,
+        author: data[0].usuario?.nombre || 'Tú',
+        replies: [],
+      };
+      setComments(prev => [nuevo, ...prev]);
+      setNewComment('');
     } catch (error) {
-      Alert.alert('Error', 'No se pudo agregar el comentario. Inténtalo de nuevo.');
+      Alert.alert('Error', 'No se pudo agregar el comentario.');
       console.error('Error al agregar comentario:', error);
     }
-  }, [newComment]);
+  }, [newComment, id]);
 
-  //  Iniciar respuesta (primer nivel)
+  // Responder (primer nivel)
   const startReply = useCallback((commentId) => {
     setReplyTo(commentId);
     setReplyText('');
-    setReplyToChild(null);           // cierra editor de segundo nivel si estaba abierto
+    setReplyToChild(null);
     setChildReplyText('');
     setTimeout(() => {
       replyInputRef.current?.focus();
@@ -261,55 +251,52 @@ export default function DetallePublicacionScreen({ route, navigation }) {
     }, 50);
   }, []);
 
-  //  Enviar respuesta (primer nivel)
   const handleSendReply = useCallback(async () => {
     const text = replyText.trim();
     if (!text || !replyTo) return;
-
     try {
       const usuario = await obtenerUsuarioActual();
-      const {data, error} = await supabase.from('Respuestas').insert([
-        {
-          id_comentario: replyTo,
-          id_usuario: usuario.id,
-          contenido: text
-        }]
-      ).select(`id, contenido, created_at, usuario:usuarios ( nombre )`);
-      if (error) {
-        Alert.alert('Error', error.message || 'No se pudo agregar la respuesta.');
+      if (!usuario?.id) {
+        Alert.alert('Inicia sesión', 'Debes iniciar sesión para responder.');
         return;
       }
+      const { data, error } = await supabase.from('Respuestas').insert([{
+        id_comentario: replyTo,
+        id_usuario: usuario.id,
+        contenido: text,
+      }]).select(`id, contenido, created_at, usuario:usuarios ( nombre )`);
+      if (error) throw error;
 
-    setComments(prev =>
-      prev.map(c =>
-        c.id === replyTo
-          ? {
-              ...c,
-              replies: [
-                ...c.replies,
-                {
-                  id: data[0].id,
-                  text: data[0].contenido,
-                  date: data[0].created_at,
-                  author: data[0].usuario.nombre,
-                  childReplies: [],
-                },
-              ],
-            }
-          : c
-      )
-    );
-    setReplyText('');
-    setReplyTo(null);
+      setComments(prev =>
+        prev.map(c =>
+          c.id === replyTo
+            ? {
+                ...c,
+                replies: [
+                  ...c.replies,
+                  {
+                    id: data[0].id,
+                    text: data[0].contenido,
+                    date: data[0].created_at,
+                    author: data[0].usuario?.nombre || 'Tú',
+                    childReplies: [],
+                  },
+                ],
+              }
+            : c
+        )
+      );
+      setReplyText('');
+      setReplyTo(null);
     } catch (error) {
-      Alert.alert('Error', 'No se pudo agregar la respuesta. Inténtalo de nuevo.');
+      Alert.alert('Error', 'No se pudo agregar la respuesta.');
       console.error('Error al agregar respuesta:', error);
     }
   }, [replyText, replyTo]);
 
-  //  Iniciar respuesta a una respuesta (segundo nivel)
+  // Responder a respuesta (segundo nivel)
   const startReplyToReply = useCallback((commentId, replyId) => {
-    setReplyTo(null);                 // cierra editor de primer nivel
+    setReplyTo(null);
     setReplyText('');
     setReplyToChild({ commentId, replyId });
     setChildReplyText('');
@@ -319,67 +306,115 @@ export default function DetallePublicacionScreen({ route, navigation }) {
     }, 50);
   }, []);
 
-  //  Enviar respuesta a la respuesta (segundo nivel)
-  const handleSendChildReply = useCallback(async() => {
+  const handleSendChildReply = useCallback(async () => {
     const text = childReplyText.trim();
     if (!text || !replyToChild) return;
-    try{
+    try {
       const usuario = await obtenerUsuarioActual();
-      const {data, error} = await supabase.from('Sub_Respuestas').insert([
-        {
-          id_respuesta: replyToChild.replyId,
-          id_usuario: usuario.id,
-          contenido: text
-        }]
-      ).select(`id, contenido, created_at, usuario:usuarios ( nombre )`);
-      if (error) {
-        Alert.alert('Error', error.message || 'No se pudo agregar la respuesta.');
+      if (!usuario?.id) {
+        Alert.alert('Inicia sesión', 'Debes iniciar sesión para responder.');
+        return;
+      }
+      const { data, error } = await supabase.from('Sub_Respuestas').insert([{
+        id_respuesta: replyToChild.replyId,
+        id_usuario: usuario.id,
+        contenido: text,
+      }]).select(`id, contenido, created_at, usuario:usuarios ( nombre )`);
+      if (error) throw error;
+
+      setComments(prev =>
+        prev.map(c => {
+          if (c.id !== replyToChild.commentId) return c;
+          return {
+            ...c,
+            replies: c.replies.map(r =>
+              r.id === replyToChild.replyId
+                ? {
+                    ...r,
+                    childReplies: [
+                      ...(r.childReplies || []),
+                      {
+                        id: data[0].id,
+                        author: data[0].usuario?.nombre || 'Tú',
+                        text: data[0].contenido,
+                        date: data[0].created_at,
+                      },
+                    ],
+                  }
+                : r
+            ),
+          };
+        })
+      );
+      setChildReplyText('');
+      setReplyToChild(null);
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo agregar la respuesta.');
+      console.error('Error al agregar respuesta a la respuesta:', error);
+    }
+  }, [childReplyText, replyToChild]);
+
+  // ======= Reportes =======
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState(REPORT_REASONS[0]);
+  const [reportNote, setReportNote] = useState('');
+  const [sendingReport, setSendingReport] = useState(false);
+  const [reportTarget, setReportTarget] = useState(null); // { type: 'post'|'comment'|'reply'|'subreply', id: string }
+
+  const openReport = (type, targetId) => {
+    setReportTarget({ type, id: String(targetId) });
+    setReportReason(REPORT_REASONS[0]);
+    setReportNote('');
+    setReportOpen(true);
+  };
+
+  const submitReport = async () => {
+    if (!reportTarget) return;
+    try {
+      if (sendingReport) return;
+      setSendingReport(true);
+
+      const res = await crearReporte({
+        target: reportTarget.type,
+        targetId: reportTarget.id,
+        reason: reportReason,
+        details: reportNote,
+      });
+
+      if (!res.ok) {
+        if (res.code === 'ALREADY_REPORTED') {
+          Alert.alert('Ya reportaste', 'Ya enviaste un reporte de este contenido.');
+        } else if (res.code === 'RATE_LIMIT') {
+          Alert.alert('Muy rápido', 'Estás reportando muy seguido. Intenta en 1 minuto.');
+        } else if (res.code === 'NO_AUTH') {
+          Alert.alert('Inicia sesión', 'Necesitas iniciar sesión para reportar.');
+        } else {
+          Alert.alert('Error', res.error || 'No se pudo enviar el reporte.');
+        }
         return;
       }
 
-    setComments(prev =>
-      prev.map(c => {
-        if (c.id !== replyToChild.commentId) return c;
-        return {
-          ...c,
-          replies: c.replies.map(r =>
-            r.id === replyToChild.replyId
-              ? {
-                  ...r,
-                  childReplies: [
-                    ...(r.childReplies || []),
-                    {
-                      id: `${r.id}-${Date.now()}`,
-                      author: 'Tú',
-                      text,
-                      date: new Date().toISOString(),
-                    },
-                  ],
-                }
-              : r
-          ),
-        };
-      })
-    );
-    setChildReplyText('');
-    setReplyToChild(null);
-  } catch (error) {
-    Alert.alert('Error', 'No se pudo agregar la respuesta. Inténtalo de nuevo.');
-    console.error('Error al agregar respuesta a la respuesta:', error);
-  }
-  }, [childReplyText, replyToChild]);
+      // Marcar localmente como reportado (post/comment/reply/subreply)
+      setReportedMap(prev => {
+        const out = { ...prev };
+        const t = reportTarget.type;
+        out[t] = { ...(out[t] || {}), [reportTarget.id]: true };
+        return out;
+      });
 
-  if (!publicacion) {
-    return (
-      <View style={[styles.flex, styles.center, { backgroundColor: '#0c111b' }]}>
-        <Text style={styles.errorText}>Publicación no encontrada.</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backIcon}>↩</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+      setReportOpen(false);
+      setReportTarget(null);
+      setReportReason(REPORT_REASONS[0]);
+      setReportNote('');
+      Alert.alert('Gracias', 'Tu reporte fue enviado.');
+    } catch {
+      Alert.alert('Error', 'No se pudo enviar el reporte.');
+    } finally {
+      setSendingReport(false);
+    }
+  };
 
+  // ===== Render =====
   return (
     <KeyboardAvoidingView
       style={[styles.flex, { backgroundColor: '#0c111b' }]}
@@ -387,7 +422,6 @@ export default function DetallePublicacionScreen({ route, navigation }) {
       keyboardVerticalOffset={Platform.select({ ios: 64, android: 0 })}
     >
       <View style={styles.wrapper}>
-        {/* Volver */}
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} activeOpacity={0.7}>
           <Text style={styles.backIcon}>↩</Text>
         </TouchableOpacity>
@@ -402,15 +436,12 @@ export default function DetallePublicacionScreen({ route, navigation }) {
             ]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="always"
-            keyboardDismissMode="none"
             overScrollMode="never"
           >
-            {/* Portada */}
             {!!portadaUri && (
               <Image source={{ uri: portadaUri }} style={styles.portada} resizeMode="cover" />
             )}
 
-            {/* Info */}
             {!!titulo && <Text style={styles.titulo}>{titulo}</Text>}
             {!!autor && <Text style={styles.autor}>por {autor}</Text>}
 
@@ -419,7 +450,6 @@ export default function DetallePublicacionScreen({ route, navigation }) {
               {!!area && <Text style={styles.chip}>#{area}</Text>}
             </View>
 
-            {/* Colaboradores */}
             {colaboradores.length > 0 && (
               <View style={styles.collabBlock}>
                 <Text style={styles.collabLabel}>Colaboradores</Text>
@@ -440,7 +470,6 @@ export default function DetallePublicacionScreen({ route, navigation }) {
 
             {!!descripcion && <Text style={styles.descripcion}>{descripcion}</Text>}
 
-            {/* Ver documento */}
             {!!pdfUri && (
               <TouchableOpacity
                 style={styles.primaryBtn}
@@ -451,9 +480,19 @@ export default function DetallePublicacionScreen({ route, navigation }) {
               </TouchableOpacity>
             )}
 
-            {/* ====================== */}
-            {/*     COMENTARIOS        */}
-            {/* ====================== */}
+            {/* NUEVO: Reportar publicación */}
+            <TouchableOpacity
+              style={[styles.primaryBtn, { backgroundColor: '#ef4444', marginTop: 10 }]}
+              onPress={() => openReport('post', id)}
+              activeOpacity={reportedMap.post?.[String(id)] ? 1 : 0.85}
+              disabled={!!reportedMap.post?.[String(id)]}
+            >
+              <Text style={styles.primaryBtnText}>
+                {reportedMap.post?.[String(id)] ? 'Publicación reportada' : 'Reportar publicación'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Comentarios */}
             <View style={styles.commentSection}>
               <Text style={styles.commentTitle}>Comentarios ({comments.length})</Text>
 
@@ -479,7 +518,7 @@ export default function DetallePublicacionScreen({ route, navigation }) {
                 </TouchableOpacity>
               </View>
 
-              {/* Lista de comentarios */}
+              {/* Lista */}
               {comments.map((c) => (
                 <View key={c.id} style={styles.commentItem}>
                   <View style={styles.commentHeaderRow}>
@@ -490,6 +529,11 @@ export default function DetallePublicacionScreen({ route, navigation }) {
                       <View style={styles.commentMetaRow}>
                         <Text style={styles.commentAuthor}>{c.author || 'Usuario'}</Text>
                         <Text style={styles.commentDate}>• {new Date(c.date).toLocaleDateString()}</Text>
+                        {reportedMap.comment[String(c.id)] && (
+                          <View style={styles.reportedChip}>
+                            <Text style={styles.reportedChipText}>Reportado</Text>
+                          </View>
+                        )}
                       </View>
 
                       <View style={styles.commentBubble}>
@@ -500,10 +544,22 @@ export default function DetallePublicacionScreen({ route, navigation }) {
                         <TouchableOpacity onPress={() => startReply(c.id)} activeOpacity={0.7}>
                           <Text style={styles.replyBtnText}>Responder</Text>
                         </TouchableOpacity>
+
+                        <View style={{ width: 16 }} />
+
+                        <TouchableOpacity
+                          onPress={() => openReport('comment', c.id)}
+                          activeOpacity={reportedMap.comment[String(c.id)] ? 1 : 0.7}
+                          disabled={!!reportedMap.comment[String(c.id)]}
+                        >
+                          <Text style={[styles.reportBtnText, reportedMap.comment[String(c.id)] && { opacity: 0.6 }]}>
+                            Reportar
+                          </Text>
+                        </TouchableOpacity>
                       </View>
 
-                      {/* Primer nivel de respuestas */}
-                      {c.replies?.length > 0 && (
+                      {/* Respuestas */}
+                      {!!c.replies?.length && (
                         <View style={styles.replyList}>
                           {c.replies.map((r) => (
                             <View key={r.id} style={styles.replyItem}>
@@ -516,23 +572,36 @@ export default function DetallePublicacionScreen({ route, navigation }) {
                                 <View style={styles.commentMetaRow}>
                                   <Text style={styles.replyAuthor}>{r.author || 'Usuario'}</Text>
                                   <Text style={styles.commentDate}>• {new Date(r.date).toLocaleDateString()}</Text>
+                                  {reportedMap.reply[String(r.id)] && (
+                                    <View style={styles.reportedChip}>
+                                      <Text style={styles.reportedChipText}>Reportado</Text>
+                                    </View>
+                                  )}
                                 </View>
 
                                 <View style={styles.replyBubble}>
                                   <Text style={styles.commentBody}>{r.text}</Text>
                                 </View>
 
-                                {/* Acción: Responder a la respuesta (segundo nivel) */}
                                 <View style={styles.commentActionsRow}>
-                                  <TouchableOpacity
-                                    onPress={() => startReplyToReply(c.id, r.id)}
-                                    activeOpacity={0.7}
-                                  >
+                                  <TouchableOpacity onPress={() => startReplyToReply(c.id, r.id)} activeOpacity={0.7}>
                                     <Text style={styles.replyBtnText}>Responder</Text>
+                                  </TouchableOpacity>
+
+                                  <View style={{ width: 16 }} />
+
+                                  <TouchableOpacity
+                                    onPress={() => openReport('reply', r.id)}
+                                    activeOpacity={reportedMap.reply[String(r.id)] ? 1 : 0.7}
+                                    disabled={!!reportedMap.reply[String(r.id)]}
+                                  >
+                                    <Text style={[styles.reportBtnText, reportedMap.reply[String(r.id)] && { opacity: 0.6 }]}>
+                                      Reportar
+                                    </Text>
                                   </TouchableOpacity>
                                 </View>
 
-                                {/* SEGUNDO NIVEL (childReplies) */}
+                                {/* Sub-respuestas */}
                                 {!!r.childReplies?.length && (
                                   <View style={styles.replyList}>
                                     {r.childReplies.map(cr => (
@@ -546,18 +615,34 @@ export default function DetallePublicacionScreen({ route, navigation }) {
                                           <View style={styles.commentMetaRow}>
                                             <Text style={styles.replyAuthor}>{cr.author || 'Usuario'}</Text>
                                             <Text style={styles.commentDate}>• {new Date(cr.date).toLocaleDateString()}</Text>
+                                            {reportedMap.subreply[String(cr.id)] && (
+                                              <View style={styles.reportedChip}>
+                                                <Text style={styles.reportedChipText}>Reportado</Text>
+                                              </View>
+                                            )}
                                           </View>
                                           <View style={styles.replyBubble}>
                                             <Text style={styles.commentBody}>{cr.text}</Text>
                                           </View>
-                                          {/* Sin botón "Responder" en el último nivel */}
+
+                                          <View style={[styles.commentActionsRow, { marginTop: 4 }]}>
+                                            <TouchableOpacity
+                                              onPress={() => openReport('subreply', cr.id)}
+                                              activeOpacity={reportedMap.subreply[String(cr.id)] ? 1 : 0.7}
+                                              disabled={!!reportedMap.subreply[String(cr.id)]}
+                                            >
+                                              <Text style={[styles.reportBtnText, reportedMap.subreply[String(cr.id)] && { opacity: 0.6 }]}>
+                                                Reportar
+                                              </Text>
+                                            </TouchableOpacity>
+                                          </View>
                                         </View>
                                       </View>
                                     ))}
                                   </View>
                                 )}
 
-                                {/* Caja de respuesta para segundo nivel (solo visible cuando aplica) */}
+                                {/* Caja de respuesta (segundo nivel) */}
                                 {replyToChild &&
                                   replyToChild.commentId === c.id &&
                                   replyToChild.replyId === r.id && (
@@ -586,14 +671,14 @@ export default function DetallePublicacionScreen({ route, navigation }) {
                                         </TouchableOpacity>
                                       </View>
                                     </View>
-                                )}
+                                  )}
                               </View>
                             </View>
                           ))}
                         </View>
                       )}
 
-                      {/* Caja de respuesta activa (primer nivel) */}
+                      {/* Caja de respuesta (primer nivel) */}
                       {replyTo === c.id && (
                         <View style={styles.replyBox}>
                           <TextInput
@@ -629,7 +714,6 @@ export default function DetallePublicacionScreen({ route, navigation }) {
           </ScrollView>
         ) : (
           <View style={styles.viewerWrap}>
-            {/* 1) Visor PDF nativo */}
             {isPDF && !!pdfUri && !pdfFailed && (
               <Pdf
                 source={isRemote ? { uri: pdfUri, cache: true } : { uri: pdfUri }}
@@ -640,7 +724,6 @@ export default function DetallePublicacionScreen({ route, navigation }) {
               />
             )}
 
-            {/* 2) WebView (no-PDF o fallback) */}
             {!!webSource && (!isPDF || pdfFailed) && !falloWebViewLocal && (
               <WebView
                 source={webSource}
@@ -653,7 +736,6 @@ export default function DetallePublicacionScreen({ route, navigation }) {
               />
             )}
 
-            {/* 3) Fallback local → visor del sistema */}
             {isPDF && !isRemote && !!pdfUri && (pdfFailed || falloWebViewLocal) && (
               <View style={[styles.flex, styles.center, styles.fallback]}>
                 <Text style={styles.fallbackText}>No se pudo mostrar el PDF local dentro de la app.</Text>
@@ -673,6 +755,72 @@ export default function DetallePublicacionScreen({ route, navigation }) {
           </View>
         )}
       </View>
+
+      {/* Modal de reporte */}
+      {reportOpen && (
+        <View style={rstyles.modalBackdrop}>
+          <View style={rstyles.modalSheet}>
+            <Text style={rstyles.modalTitle}>
+              Reportar {reportTarget?.type === 'post'
+                ? 'publicación'
+                : reportTarget?.type === 'comment'
+                ? 'comentario'
+                : reportTarget?.type === 'reply'
+                ? 'respuesta'
+                : 'sub-respuesta'}
+            </Text>
+            <Text style={rstyles.modalSub}>Selecciona un motivo</Text>
+
+            <View style={{ marginTop: 10 }}>
+              {REPORT_REASONS.map((key) => (
+                <TouchableOpacity
+                  key={key}
+                  style={rstyles.radioRow}
+                  onPress={() => setReportReason(key)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[rstyles.radioOuter, reportReason === key && rstyles.radioOuterActive]}>
+                    {reportReason === key && <View style={rstyles.radioInner} />}
+                  </View>
+                  <Text style={rstyles.radioLabel}>
+                    {key === 'spam' ? 'Spam'
+                      : key === 'agresion' ? 'Agresión'
+                      : key === 'nsfw' ? 'NSFW (contenido sensible)'
+                      : key === 'contenido_enganoso' ? 'Contenido engañoso'
+                      : 'Reporte sin clasificar'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TextInput
+              value={reportNote}
+              onChangeText={setReportNote}
+              placeholder="Comentario (opcional)…"
+              placeholderTextColor="#94A3B8"
+              style={rstyles.modalInput}
+              multiline
+            />
+
+            <View style={rstyles.modalActions}>
+              <TouchableOpacity
+                style={rstyles.modalBtnGhost}
+                onPress={() => { setReportOpen(false); setReportTarget(null); }}
+              >
+                <Text style={rstyles.modalBtnGhostText}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[rstyles.modalBtnPrimary, (!reportTarget || sendingReport) && { opacity: 0.6 }]}
+                onPress={submitReport}
+                disabled={!reportTarget || sendingReport}
+              >
+                <Text style={rstyles.modalBtnPrimaryText}>Enviar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 }

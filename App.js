@@ -34,41 +34,27 @@ import AdminProfileScreen from './screens/AdminProfileScreen';
 
 /* Reportes */
 import AdminReportsListScreen from './screens/AdminReportsListScreen';
-
 import AdminReportCommentDetallScreen from './screens/AdminReportCommentDetallScreen';
 import AdminReportUserDetallScreen from './screens/AdminReportUserDetallScreen';
 import AdminReportPublicDetallScreen from './screens/AdminReportPublicDetallScreen';
-
 
 /* Extras */
 import AdminModeradoresScreen from './screens/AdminModeradoresScreen';
 import AdminHilosSoporteScreen from './screens/AdminHilosSoporteScreen';
 
-
 const RootStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-
-
-
-
-
-/** En DEV arranca en el panel, en PROD en Bienvenido */
-/*const INITIAL_ROUTE = __DEV__ ? 'PerfilUsuario' : 'Bienvenido';
-
-/*  RUTA OFICIAL A LA PUBLICA, SALIR DE MODO DESARROLLADOR */
- const INITIAL_ROUTE = 'Login';
-
-
-
-
+/** RUTA INICIAL (ajusta a lo que necesites) **/
+// Opción fija:
+const INITIAL_ROUTE = 'Login';
+// Opción condicional (descomenta si prefieres):
+// const INITIAL_ROUTE = __DEV__ ? 'PerfilUsuario' : 'Bienvenido';
 
 /* --------- Tabs del Panel de Administración --------- */
 function AdminTabs() {
-  /** En DEV abre el tab de Usuarios; en PROD el Dashboard */
- const ADMIN_INITIAL_TAB = 'AdminDashboard'; 
-
-
+  // Tab inicial del panel (puedes cambiarlo a 'AdminUsers' si quieres)
+  const ADMIN_INITIAL_TAB = 'AdminDashboard';
 
   return (
     <Tab.Navigator
@@ -118,7 +104,6 @@ function AdminTabs() {
           ),
         }}
       />
-      
       <Tab.Screen
         name="AdminSoporteTab"
         component={AdminSoporteScreen}
@@ -149,7 +134,10 @@ export default function App() {
       <GestureHandlerRootView style={{ flex: 1 }}>
         <NavigationContainer>
           <StatusBar style="light" />
-          <RootStack.Navigator initialRouteName={INITIAL_ROUTE} screenOptions={{ headerShown: false }}>
+          <RootStack.Navigator
+            initialRouteName={INITIAL_ROUTE}
+            screenOptions={{ headerShown: false }}
+          >
             {/* --------- Público / Usuario --------- */}
             <RootStack.Screen name="Bienvenido" component={BienvenidoScreen} />
             <RootStack.Screen name="Registrar" component={RegistrarScreen} />
@@ -177,16 +165,11 @@ export default function App() {
             {/* --------- Rutas push (Detall + extras) --------- */}
             <RootStack.Screen name="AdminUserDetall" component={AdminUserDetallScreen} />
             <RootStack.Screen name="AdminPublicationDetall" component={AdminPublicationDetallScreen} />
-            
-
-            
             <RootStack.Screen name="AdminSoporte" component={AdminSoporteScreen} />
             <RootStack.Screen name="AdminHilosSoporte" component={AdminHilosSoporteScreen} />
             <RootStack.Screen name="AdminReportPublicDetall" component={AdminReportPublicDetallScreen} />
             <RootStack.Screen name="AdminReportCommentDetall" component={AdminReportCommentDetallScreen} />
             <RootStack.Screen name="AdminReportUserDetall" component={AdminReportUserDetallScreen} />
-            
-
             <RootStack.Screen name="AdminModeradores" component={AdminModeradoresScreen} />
           </RootStack.Navigator>
         </NavigationContainer>

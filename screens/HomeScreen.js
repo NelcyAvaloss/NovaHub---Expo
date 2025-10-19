@@ -1,3 +1,4 @@
+// screens/HomeScreen.js
 import React, { useRef, useCallback, useEffect, useState } from 'react';
 import {
   FlatList,
@@ -11,7 +12,7 @@ import {
   Alert,
   StyleSheet,
 } from 'react-native';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import { styles } from './Home.styles';
 import { supabase } from './supabase';
 
@@ -32,9 +33,7 @@ export default function HomeScreen({ navigation }) {
   const [votesMap, setVotesMap] = useState({});
   const [rolUsuario, setRolUsuario] = useState(null);
 
-  // ===== Menú ⋮ y Reportes =====
   const [menuPubId, setMenuPubId] = useState(null);
-
   const REPORT_REASONS = [
     { key: 'spam',               label: 'Spam' },
     { key: 'agresion',           label: 'Agresión' },
@@ -47,7 +46,10 @@ export default function HomeScreen({ navigation }) {
   const [reportReason, setReportReason] = useState('spam');
   const [reportNote, setReportNote] = useState('');
 
-  // ===== Utilidades de rol =====
+  // canal supabase por foco
+  const homeChRef = useRef(null);
+
+  // ===== Utils rol =====
   const getRolFromUser = (user) => {
     const metaRol = user?.user_metadata?.rol;
     const low = typeof metaRol === 'string' ? metaRol.toLowerCase() : null;
@@ -104,16 +106,12 @@ export default function HomeScreen({ navigation }) {
     try {
       const { data: sessionRes, error: sessionErr } = await supabase.auth.getUser();
       if (sessionErr) console.log('[Home] getUser error:', sessionErr.message);
-
       const user = sessionRes?.user;
       if (!user) { setRolUsuario(null); return; }
-
       const meta = getRolFromUser(user);
       if (meta) { setRolUsuario(meta); return; }
-
       const dbRol = await fetchRolFromUsuarios(user);
       if (dbRol) { setRolUsuario(dbRol); return; }
-
       setRolUsuario(ROLE_STUDENT);
     } catch (e) {
       console.log('[Home] exception fetchRol:', e, { why });
@@ -121,7 +119,7 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
-  // ===== Escuchar cambios de sesión y foco =====
+  // ===== auth / foco =====
   useEffect(() => {
     fetchRol('mount');
     const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -148,17 +146,77 @@ export default function HomeScreen({ navigation }) {
     }
   }, [isFocused]);
 
-  // ---------- publicaciones + votos ----------
-  useEffect(() => {
-    const fetchAll = async () => {
-      const pubs = await obtenerPublicaciones();
-      setPublicaciones(pubs || []);
-      seedVotesFromItems(pubs || []);
-      await cargarVotos(pubs || []);
-    };
-    fetchAll();
-  }, []);
+  // ---------- publicaciones + votos (ATADO AL FOCO) ----------
+  useFocusEffect(
+    React.useCallback(() => {
+      let isActive = true;
 
+      const init = async () => {
+        // 1) cargar feed inicial
+        const pubs = await obtenerPublicaciones(); // SOLO “publicada”
+        if (!isActive) return;
+        setPublicaciones(pubs || []);
+        seedVotesFromItems(pubs || []);
+        await cargarVotos(pubs || []);
+
+        // 2) matar canales viejos por topic
+        const TOPIC = 'home-publicaciones';
+        supabase.getChannels().forEach((ch) => {
+          if (ch?.topic === TOPIC) supabase.removeChannel(ch);
+        });
+
+        // 3) canal fresco
+        homeChRef.current = supabase.channel('home-publicaciones');
+        homeChRef.current.on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'Publicaciones' },
+          async (payload) => {
+            const row = payload.new;
+            if (!row?.id) return;
+            const st = row.estado_de_revision;
+
+            if (st !== 'publicada') {
+              setPublicaciones(prev => prev.filter(p => p.id !== row.id));
+              setVotesMap(prev => { const n = { ...prev }; delete n[row.id]; return n; });
+              return;
+            }
+
+            try {
+              const { data, error } = await supabase
+                .from('Publicaciones')
+                .select('*, autor:usuarios(nombre)')
+                .eq('id', row.id)
+                .eq('estado_de_revision', 'publicada')
+                .single();
+
+              if (!error && data) {
+                const pub = { ...data, autor: data.autor?.nombre || 'Autor' };
+                setPublicaciones(prev => {
+                  const idx = prev.findIndex(p => p.id === pub.id);
+                  if (idx === -1) return [pub, ...prev];
+                  const next = [...prev]; next[idx] = pub; return next;
+                });
+                await cargarVotos([{ id: pub.id }]);
+              }
+            } catch {}
+          }
+        );
+        homeChRef.current.subscribe();
+      };
+
+      init();
+
+      return () => {
+        isActive = false;
+        if (homeChRef.current) {
+          supabase.removeChannel(homeChRef.current);
+          homeChRef.current = null;
+        }
+      };
+    }, [])
+  );
+
+  // ===== helpers =====
   const seedVotesFromItems = (pubs) => {
     setVotesMap((prev) => {
       const next = { ...prev };
@@ -193,7 +251,6 @@ export default function HomeScreen({ navigation }) {
 
   // ======= Navegar al perfil del autor al tocar el NOMBRE =======
   const getAuthorIdFromItem = (item) => {
-    // Intenta detectar el id del autor si tu fila lo trae
     return (
       item?.id_usuario ??
       item?.usuario_id ??
@@ -206,18 +263,20 @@ export default function HomeScreen({ navigation }) {
 
   const openPerfilAutor = useCallback((item) => {
     const perfil = {
-      id: getAuthorIdFromItem(item),         // puede ser null si no viene en la fila
-      nombre: item?.autor || 'Autor',        // el nombre que ya muestras en Home
+      id: getAuthorIdFromItem(item),
+      nombre: item?.autor || 'Autor',
       email: null,
       avatarUri: null,
     };
     navigation.navigate('PerfilUsuario', { perfil });
   }, [navigation]);
 
+  // SOLO publicaciones “publicada”
   const obtenerPublicaciones = async () => {
     const { data, error } = await supabase
       .from('Publicaciones')
       .select('*, autor:usuarios(nombre)')
+      .eq('estado_de_revision', 'publicada')
       .order('created_at', { ascending: false })
       .limit(100);
 
@@ -334,9 +393,9 @@ export default function HomeScreen({ navigation }) {
         .insert([{
           id_publicacion: pubId,
           accion: 'reporte',
-          motivo,                // 'spam' | 'agresion' | 'nsfw' | 'contenido_enganoso' | 'sin_clasificar'
-          nota: nota || null,    // comentario opcional
-          id_usuario: uid,       // quita si tu tabla no tiene esta columna
+          motivo,
+          nota: nota || null,
+          id_usuario: uid,
         }]);
 
       if (error) throw error;
@@ -406,7 +465,6 @@ export default function HomeScreen({ navigation }) {
               </TouchableOpacity>
             </View>
 
-            {/* Menú flotante */}
             {menuPubId === item.id && (
               <View style={localStyles.kebabMenu}>
                 <TouchableOpacity
@@ -430,7 +488,6 @@ export default function HomeScreen({ navigation }) {
               </View>
             )}
 
-            {/* Título, descripción, imagen */}
             {!!item.titulo && (
               <Text style={styles.publicacionTitulo} numberOfLines={2}>{item.titulo}</Text>
             )}
@@ -441,13 +498,11 @@ export default function HomeScreen({ navigation }) {
               <Image source={{ uri: item.portadaUri }} style={styles.publicacionImagen} />
             )}
 
-            {/* Tags */}
             <View style={styles.tagsRow}>
               {!!item.categoria && <Text style={styles.tagChip}>#{item.categoria}</Text>}
               {!!item.area && <Text style={styles.tagChip}>#{item.area}</Text>}
             </View>
 
-            {/* Colaboradores */}
             {colaboradores.length > 0 && (
               <View style={styles.collabBlock}>
                 <Text style={styles.collabLabel}>Colaboradores</Text>
@@ -466,7 +521,6 @@ export default function HomeScreen({ navigation }) {
               </View>
             )}
 
-            {/* Footer */}
             <View style={styles.publicacionFooter}>
               <View style={styles.voteRow}>
                 <TouchableOpacity
@@ -589,8 +643,11 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
+          onPressIn={() => Animated.spring(scaleAnim, { toValue: 1.2, useNativeDriver: true }).start()}
+          onPressOut={() =>
+            Animated.spring(scaleAnim, { toValue: 1, friction: 3, tension: 40, useNativeDriver: true })
+              .start(() => navigation.navigate('CrearPublicacion'))
+          }
           style={{ transform: [{ scale: scaleAnim }] }}
           activeOpacity={0.9}
         >
@@ -606,7 +663,7 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* ===== Modal Reporte ===== */}
+      {/* Modal Reporte */}
       {reportModalOpen && (
         <View style={localStyles.modalBackdrop}>
           <View style={localStyles.modalSheet}>
@@ -615,7 +672,6 @@ export default function HomeScreen({ navigation }) {
               {reportTarget?.titulo ? `“${reportTarget.titulo}”` : 'Publicación'}
             </Text>
 
-            {/* Radios motivo */}
             <View style={{ marginTop: 10 }}>
               {REPORT_REASONS.map((r) => (
                 <TouchableOpacity
@@ -632,7 +688,6 @@ export default function HomeScreen({ navigation }) {
               ))}
             </View>
 
-            {/* Nota opcional */}
             <TextInput
               value={reportNote}
               onChangeText={setReportNote}
@@ -642,7 +697,6 @@ export default function HomeScreen({ navigation }) {
               multiline
             />
 
-            {/* Acciones */}
             <View style={localStyles.modalActions}>
               <TouchableOpacity
                 style={localStyles.modalBtnGhost}
@@ -655,11 +709,6 @@ export default function HomeScreen({ navigation }) {
                 style={localStyles.modalBtnPrimary}
                 onPress={() => {
                   if (!reportTarget?.id) { setReportModalOpen(false); return; }
-                  // Si quieres obligar nota en "sin_clasificar", descomenta:
-                  // if (reportReason === 'sin_clasificar' && !reportNote.trim()) {
-                  //   Alert.alert('Nota requerida', 'Describe brevemente el motivo.');
-                  //   return;
-                  // }
                   reportarPublicacion(reportTarget.id, reportReason, reportNote);
                 }}
               >
@@ -675,8 +724,6 @@ export default function HomeScreen({ navigation }) {
 
 const localStyles = StyleSheet.create({
   headerIconLabel: { color: '#fff', fontSize: 10, marginTop: 4 },
-
-  // Menú ⋮
   kebabBtn: { marginLeft: 'auto', padding: 6 },
   kebabText: { fontSize: 22, color: '#64748B', lineHeight: 18 },
   kebabMenu: {
@@ -696,8 +743,6 @@ const localStyles = StyleSheet.create({
   },
   kebabItem: { paddingHorizontal: 14, paddingVertical: 10 },
   kebabItemText: { color: '#0f172a', fontSize: 14 },
-
-  // Modal
   modalBackdrop: {
     position: 'absolute',
     left: 0, right: 0, top: 0, bottom: 0,
@@ -727,15 +772,8 @@ const localStyles = StyleSheet.create({
   modalActions: { marginTop: 12, flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
   modalBtnGhost: { paddingHorizontal: 14, paddingVertical: 10 },
   modalBtnGhostText: { color: '#334155', fontWeight: '600' },
-  modalBtnPrimary: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: '#0e0e2c',
-  },
+  modalBtnPrimary: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, backgroundColor: '#0e0e2c' },
   modalBtnPrimaryText: { color: '#fff', fontWeight: '700' },
-
-  // Radios
   radioRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
   radioOuter: {
     width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#CBD5E1',
