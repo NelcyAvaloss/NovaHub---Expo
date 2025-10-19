@@ -1,4 +1,3 @@
-// screens/HomeScreen.js
 import React, { useRef, useCallback, useEffect, useState } from 'react';
 import {
   FlatList,
@@ -12,7 +11,7 @@ import {
   Alert,
   StyleSheet,
 } from 'react-native';
-import { useIsFocused, useFocusEffect } from '@react-navigation/native'; // 🔥 CAMBIO: useFocusEffect (motivo: canal por foco)
+import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import { styles } from './Home.styles';
 import { supabase } from './supabase';
 
@@ -46,7 +45,7 @@ export default function HomeScreen({ navigation }) {
   const [reportReason, setReportReason] = useState('spam');
   const [reportNote, setReportNote] = useState('');
 
-  // 🔥 CAMBIO: guardo referencia del canal para poder cerrarlo al perder foco
+  // canal supabase por foco
   const homeChRef = useRef(null);
 
   // ===== Utils rol =====
@@ -149,24 +148,24 @@ export default function HomeScreen({ navigation }) {
   // ---------- publicaciones + votos (ATADO AL FOCO) ----------
   useFocusEffect(
     React.useCallback(() => {
-      let isActive = true; // evita setState tras blur si llega tarde una promesa
+      let isActive = true;
 
       const init = async () => {
         // 1) cargar feed inicial
-        const pubs = await obtenerPublicaciones(); // 🔥 CAMBIO: solo “publicada”
+        const pubs = await obtenerPublicaciones(); // SOLO “publicada”
         if (!isActive) return;
         setPublicaciones(pubs || []);
         seedVotesFromItems(pubs || []);
         await cargarVotos(pubs || []);
 
-        // 2) MATAR canales viejos por topic (por si hot-reload dejó residuos)
+        // 2) matar canales viejos por topic
         const TOPIC = 'home-publicaciones';
         supabase.getChannels().forEach((ch) => {
-          if (ch?.topic === TOPIC) supabase.removeChannel(ch); // 🔥 CAMBIO: barrido por topic
+          if (ch?.topic === TOPIC) supabase.removeChannel(ch);
         });
 
-        // 3) crear canal fresco y suscribir 1 sola vez
-        homeChRef.current = supabase.channel('home-publicaciones'); // 🔥 CAMBIO: canal por foco
+        // 3) canal fresco
+        homeChRef.current = supabase.channel('home-publicaciones');
         homeChRef.current.on(
           'postgres_changes',
           { event: 'UPDATE', schema: 'public', table: 'Publicaciones' },
@@ -175,14 +174,12 @@ export default function HomeScreen({ navigation }) {
             if (!row?.id) return;
             const st = row.estado_de_revision;
 
-            // si dejó de ser pública → fuera del feed
             if (st !== 'publicada') {
               setPublicaciones(prev => prev.filter(p => p.id !== row.id));
               setVotesMap(prev => { const n = { ...prev }; delete n[row.id]; return n; });
               return;
             }
 
-            // si pasó a pública → refresco de esa fila
             try {
               const { data, error } = await supabase
                 .from('Publicaciones')
@@ -203,16 +200,15 @@ export default function HomeScreen({ navigation }) {
             } catch {}
           }
         );
-        homeChRef.current.subscribe(); // 🔥 CAMBIO: subscribe único
+        homeChRef.current.subscribe();
       };
 
       init();
 
-      // cleanup cuando Home pierde foco
       return () => {
         isActive = false;
         if (homeChRef.current) {
-          supabase.removeChannel(homeChRef.current); // 🔥 CAMBIO: cerrar canal al blur
+          supabase.removeChannel(homeChRef.current);
           homeChRef.current = null;
         }
       };
@@ -252,7 +248,29 @@ export default function HomeScreen({ navigation }) {
     [navigation]
   );
 
-  // 🔥 CAMBIO: SOLO publicaciones “publicada” (oculta eliminadas/rechazadas)
+  // ======= Navegar al perfil del autor al tocar el NOMBRE =======
+  const getAuthorIdFromItem = (item) => {
+    return (
+      item?.id_usuario ??
+      item?.usuario_id ??
+      item?.user_id ??
+      item?.autor_id ??
+      item?.author_id ??
+      null
+    );
+  };
+
+  const openPerfilAutor = useCallback((item) => {
+    const perfil = {
+      id: getAuthorIdFromItem(item),
+      nombre: item?.autor || 'Autor',
+      email: null,
+      avatarUri: null,
+    };
+    navigation.navigate('PerfilUsuario', { perfil });
+  }, [navigation]);
+
+  // SOLO publicaciones “publicada”
   const obtenerPublicaciones = async () => {
     const { data, error } = await supabase
       .from('Publicaciones')
@@ -376,7 +394,7 @@ export default function HomeScreen({ navigation }) {
           accion: 'reporte',
           motivo,
           nota: nota || null,
-          id_usuario: uid, // si tu tabla no tiene esta col, bórrala
+          id_usuario: uid,
         }]);
 
       if (error) throw error;
@@ -395,7 +413,9 @@ export default function HomeScreen({ navigation }) {
   const renderItem = useCallback(
     ({ item }) => {
       const colaboradores = (item?.equipo_colaborador || '')
-        .split(',').map((s) => s.trim()).filter(Boolean);
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
 
       const v = votesMap[item.id] || {
         likes: item.likes_count ?? item.likes ?? 0,
@@ -416,9 +436,16 @@ export default function HomeScreen({ navigation }) {
               </View>
 
               <View style={styles.headerText}>
-                <Text style={styles.nombreAutor} numberOfLines={1}>
-                  {item.autor || 'Autor'}
-                </Text>
+                {/* NOMBRE TOCABLE -> navega a PerfilUsuario */}
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => openPerfilAutor(item)}
+                >
+                  <Text style={styles.nombreAutor} numberOfLines={1}>
+                    {item.autor || 'Autor'}
+                  </Text>
+                </TouchableOpacity>
+
                 <Text style={styles.fechaTexto}>
                   {item.created_at ? new Date(item.created_at).toLocaleDateString() : 'Ahora'}
                 </Text>
@@ -528,7 +555,7 @@ export default function HomeScreen({ navigation }) {
         </View>
       );
     },
-    [applyVote, irADetalle, votesMap, menuPubId]
+    [applyVote, irADetalle, votesMap, menuPubId, openPerfilAutor]
   );
 
   return (
@@ -615,8 +642,11 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
+          onPressIn={() => Animated.spring(scaleAnim, { toValue: 1.2, useNativeDriver: true }).start()}
+          onPressOut={() =>
+            Animated.spring(scaleAnim, { toValue: 1, friction: 3, tension: 40, useNativeDriver: true })
+              .start(() => navigation.navigate('CrearPublicacion'))
+          }
           style={{ transform: [{ scale: scaleAnim }] }}
           activeOpacity={0.9}
         >

@@ -142,7 +142,6 @@ export default function AdminReportsListScreen({ navigation }) {
     }
     setLastChangedId(id);
 
-    // 3) Mapa tipo -> nombre de ruta EXACTO (como lo registraste en RootStack.Screen)
     const routeByType = {
       publicacion: 'AdminReportPublicDetall',
       usuario:     'AdminReportUserDetall',
