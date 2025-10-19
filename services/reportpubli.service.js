@@ -6,12 +6,22 @@ import { supabase } from "../screens/supabase";
 
 /** Motivos válidos (deben calzar con tu enum report_reason en Supabase) */
 export const REPORT_REASONS = [
-  "spam",
-  "agresion",
-  "nsfw",
-  "contenido_enganoso",
-  "sin_clasificar",
+  "Spam",
+  "Lenguaje ofensivo",
+  "Acoso/Agresión",
+  "NSFW",
+  "Contenido engañoso",
+  "Seguridad",
+  "Privacidad",
+  "Otro",
 ];
+
+const conversionTipoObjetivo = {
+  "post":"publicacion",
+  "comment":"comentario",
+  "reply":"respuesta",
+  "subreply":"sub respuesta",
+};
 
 /** Helper: usuario actual */
 async function getCurrentUserId() {
@@ -68,19 +78,18 @@ export async function crearReporte(params) {
     const reason = normalizeReason(params?.reason);
     if (!reason) return { ok: false, error: "MOTIVO_INVALIDO", code: "BAD_REASON" };
 
-    const payload = buildPayload({
-      target: params?.target,
-      targetId: params?.targetId,
-      postId: params?.postId,
-      reason,
-      details: params?.details,
-      reporterId,
-    });
+    const payload = {
+      reportado_por: reporterId,
+      razón: reason,
+      tipo_objetivo: conversionTipoObjetivo[params.target] || null,
+      id_objetivo: params.targetId,
+      detalles: params.details?.trim() || null,
+    }
 
     if (!payload) return { ok: false, error: "TARGET_INVALIDO", code: "BAD_TARGET" };
 
     const { data, error } = await supabase
-      .from("reports")
+      .from("Reportes")
       .insert(payload)
       .select("*")
       .single();
@@ -113,29 +122,13 @@ export async function yaReportadoPorMi({ target, targetId }) {
   const reporterId = await getCurrentUserId();
   if (!reporterId) return false;
 
-  let query = supabase
-    .from("reports")
+ const { count, error } = await supabase
+    .from("Reportes")
     .select("id", { count: "exact", head: true })
-    .eq("reporter_id", reporterId);
+    .eq("reportado_por", reporterId)
+    .eq("tipo_objetivo", target);
 
-  switch (target) {
-    case "post":
-      query = query.eq("post_id", targetId);
-      break;
-    case "comment":
-      query = query.eq("comment_id", targetId);
-      break;
-    case "reply":
-      query = query.eq("reply_id", targetId);
-      break;
-    case "subreply":
-      query = query.eq("subreply_id", targetId);
-      break;
-    default:
-      return false;
-  }
-
-  const { count, error } = await query;
+ 
   if (error) return false;
   return (count ?? 0) > 0;
 }
@@ -151,11 +144,12 @@ export async function misReportesParaTargets({
   replyIds = [],
   subreplyIds = [],
 }) {
+  try {
   const reporterId = await getCurrentUserId();
   if (!reporterId) return { post: new Set(), comment: new Set(), reply: new Set(), subreply: new Set() };
 
   let query = supabase
-    .from("reports")
+    .from("Reportes")
     .select("post_id, comment_id, reply_id, subreply_id")
     .eq("reporter_id", reporterId);
 
@@ -189,6 +183,9 @@ export async function misReportesParaTargets({
       if (!r.error && Array.isArray(r.data)) merged.push(...r.data);
     }
     return foldReportRows(merged);
+  }
+  } catch (e) {
+    return { post: new Set(), comment: new Set(), reply: new Set(), subreply: new Set() };
   }
 }
 
