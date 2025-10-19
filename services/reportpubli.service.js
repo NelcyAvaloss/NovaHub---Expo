@@ -1,10 +1,9 @@
 // services/reportpubli.service.js
-// Servicio centralizado para crear y consultar reportes en NovaHub
-// Target válido: 'post' | 'comment' | 'reply' | 'subreply'
+// Reportes de usuario -> tabla public."Reportes"
 
 import { supabase } from "../screens/supabase";
 
-/** Motivos válidos (deben calzar con tu enum report_reason en Supabase) */
+// Ajusta estos valores al enum de tu BD si difieren
 export const REPORT_REASONS = [
   "spam",
   "agresion",
@@ -13,193 +12,149 @@ export const REPORT_REASONS = [
   "sin_clasificar",
 ];
 
-/** Helper: usuario actual */
+// Mapea nuestros tipos a tu enum objetivos_reporte
+const TARGET_MAP = {
+  post: "publicacion",
+  comment: "comentario",
+  reply: "respuesta",
+  subreply: "subrespuesta",
+};
+
+// Estado inicial del reporte (enum estados_reporte)
+const DEFAULT_REPORT_STATE = "abierto";
+
+/* ===================== helpers ===================== */
 async function getCurrentUserId() {
   const { data, error } = await supabase.auth.getUser();
   if (error || !data?.user?.id) return null;
   return data.user.id;
 }
 
-/** Valida reason contra el enum local */
 function normalizeReason(reason) {
   const r = String(reason || "").toLowerCase();
   return REPORT_REASONS.includes(r) ? r : null;
 }
 
-/** Construye el payload para la tabla reports según target */
-function buildPayload({ target, targetId, postId, reason, details, reporterId }) {
-  const base = {
-    reporter_id: reporterId,
-    reason,
-    details: details?.trim() || null,
-    // Enlazamos siempre el post como contexto (si lo tienes a mano)
-    post_id: postId || null,
-  };
-
-  switch (target) {
-    case "post":
-      return { ...base, comment_id: null, reply_id: null, subreply_id: null, post_id: targetId };
-    case "comment":
-      return { ...base, comment_id: targetId, reply_id: null, subreply_id: null };
-    case "reply":
-      return { ...base, comment_id: null, reply_id: targetId, subreply_id: null };
-    case "subreply":
-      return { ...base, comment_id: null, reply_id: null, subreply_id: targetId };
-    default:
-      return null;
-  }
+function normalizeTarget(target) {
+  const key = String(target || "").toLowerCase();
+  return TARGET_MAP[key] || null;
 }
 
+/* ===================== API ===================== */
+
 /**
- * Crea un reporte.
- * @param {Object} params
- * @param {'post'|'comment'|'reply'|'subreply'} params.target
- * @param {string} params.targetId - id del post/comentario/respuesta/sub-respuesta
- * @param {string} [params.postId] - id del post (contexto; recomendado)
- * @param {string} params.reason - uno de REPORT_REASONS
- * @param {string} [params.details] - nota opcional
- * @returns {Promise<{ok:boolean, data?:any, error?:string, code?:string}>}
+ * Crea un reporte en public."Reportes"
+ * @param {{
+ *   target: 'post'|'comment'|'reply'|'subreply',
+ *   targetId: string|number,
+ *   reason: string,              // uno de REPORT_REASONS
+ *   details?: string             // notas opcionales
+ * }} params
  */
-export async function crearReporte(params) {
-  try {
-    const reporterId = await getCurrentUserId();
-    if (!reporterId) return { ok: false, error: "NO_AUTH", code: "NO_AUTH" };
+export async function crearReporte(params = {}) {
+  const reporterId = await getCurrentUserId();
+  if (!reporterId) return { ok: false, code: "NO_AUTH", error: "NO_AUTH" };
 
-    const reason = normalizeReason(params?.reason);
-    if (!reason) return { ok: false, error: "MOTIVO_INVALIDO", code: "BAD_REASON" };
+  const reason = normalizeReason(params.reason);
+  if (!reason) return { ok: false, code: "BAD_REASON", error: "MOTIVO_INVALIDO" };
 
-    const payload = buildPayload({
-      target: params?.target,
-      targetId: params?.targetId,
-      postId: params?.postId,
-      reason,
-      details: params?.details,
-      reporterId,
-    });
+  const tipo = normalizeTarget(params.target);
+  if (!tipo) return { ok: false, code: "BAD_TARGET", error: "TARGET_INVALIDO" };
 
-    if (!payload) return { ok: false, error: "TARGET_INVALIDO", code: "BAD_TARGET" };
+  const id_objetivo = String(params.targetId || "").trim();
+  if (!id_objetivo) return { ok: false, code: "BAD_TARGET_ID", error: "TARGET_ID_REQUERIDO" };
 
-    const { data, error } = await supabase
-      .from("reports")
-      .insert(payload)
-      .select("*")
-      .single();
+  // 1) Evita duplicado: ya reporté este objetivo
+  const { count: ya, error: qErr } = await supabase
+    .from("Reportes")
+    .select("id", { count: "exact", head: true })
+    .eq("reportado_por", reporterId)
+    .eq("tipo_objetivo", tipo)
+    .eq("id_objetivo", id_objetivo);
 
-    if (error) {
-      const msg = (error.message || "").toLowerCase();
-      if (msg.includes("duplicate key") || msg.includes("unique") || error.code === "23505") {
-        return { ok: false, error: "YA_REPORTADO", code: "ALREADY_REPORTED" };
-      }
-      if (msg.includes("too many reports")) {
-        return { ok: false, error: "RATE_LIMIT", code: "RATE_LIMIT" };
-      }
-      if (error.code === "42501") {
-        return { ok: false, error: "SIN_PERMISOS", code: "RLS_DENIED" };
-      }
-      return { ok: false, error: msg || "ERROR_DESCONOCIDO", code: error.code || "UNKNOWN" };
-    }
-
-    return { ok: true, data };
-  } catch (e) {
-    return { ok: false, error: String(e?.message || e) };
+  if (!qErr && (ya ?? 0) > 0) {
+    return { ok: false, code: "ALREADY_REPORTED", error: "YA_REPORTADO" };
   }
+
+  // 2) Insert
+  const { data, error } = await supabase
+    .from("Reportes")
+    .insert({
+      razón: reason,
+      tipo_objetivo: tipo,
+      id_objetivo,
+      reportado_por: reporterId,
+      estado: DEFAULT_REPORT_STATE,     // 'abierto'
+      notas: (params.details || "").trim() || null,
+      // fecha: se recomienda DEFAULT now() en la BD
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    const msg = (error.message || "").toLowerCase();
+    // devoluciones coherentes con UI
+    if (msg.includes("duplicate") || error.code === "23505") {
+      return { ok: false, code: "ALREADY_REPORTED", error: "YA_REPORTADO" };
+    }
+    if (error.code === "42501") {
+      return { ok: false, code: "RLS_DENIED", error: "SIN_PERMISOS" };
+    }
+    return { ok: false, code: error.code || "UNKNOWN", error: error.message || "ERROR_DESCONOCIDO" };
+  }
+
+  return { ok: true, data };
 }
 
 /**
- * Verifica si el usuario actual ya reportó un target.
- * Devuelve true/false (útil para deshabilitar el botón "Reportar").
+ * Devuelve si YO ya reporté ese target (para deshabilitar botón/mostrar badge)
  */
 export async function yaReportadoPorMi({ target, targetId }) {
   const reporterId = await getCurrentUserId();
   if (!reporterId) return false;
 
-  let query = supabase
-    .from("reports")
+  const tipo = normalizeTarget(target);
+  if (!tipo) return false;
+
+  const { count, error } = await supabase
+    .from("Reportes")
     .select("id", { count: "exact", head: true })
-    .eq("reporter_id", reporterId);
+    .eq("reportado_por", reporterId)
+    .eq("tipo_objetivo", tipo)
+    .eq("id_objetivo", String(targetId));
 
-  switch (target) {
-    case "post":
-      query = query.eq("post_id", targetId);
-      break;
-    case "comment":
-      query = query.eq("comment_id", targetId);
-      break;
-    case "reply":
-      query = query.eq("reply_id", targetId);
-      break;
-    case "subreply":
-      query = query.eq("subreply_id", targetId);
-      break;
-    default:
-      return false;
-  }
-
-  const { count, error } = await query;
   if (error) return false;
   return (count ?? 0) > 0;
 }
 
 /**
- * Obtiene mis reportes para un set de IDs (para pintar badges en la UI).
- * Cualquiera de los arrays puede venir vacío o undefined.
- * Retorna un mapa { post: Set<string>, comment: Set<string>, reply: Set<string>, subreply: Set<string> }
+ * Para pintar “Reportado” en listas: retorna sets por tipo
  */
-export async function misReportesParaTargets({
-  postIds = [],
-  commentIds = [],
-  replyIds = [],
-  subreplyIds = [],
-}) {
+export async function misReportesParaTargets({ postIds = [], commentIds = [], replyIds = [], subreplyIds = [] }) {
   const reporterId = await getCurrentUserId();
-  if (!reporterId) return { post: new Set(), comment: new Set(), reply: new Set(), subreply: new Set() };
+  const empty = { post: new Set(), comment: new Set(), reply: new Set(), subreply: new Set() };
+  if (!reporterId) return empty;
 
-  let query = supabase
-    .from("reports")
-    .select("post_id, comment_id, reply_id, subreply_id")
-    .eq("reporter_id", reporterId);
+  const batches = [];
+  if (postIds?.length) batches.push({ tipo: "publicacion", ids: postIds, key: "post" });
+  if (commentIds?.length) batches.push({ tipo: "comentario", ids: commentIds, key: "comment" });
+  if (replyIds?.length) batches.push({ tipo: "respuesta", ids: replyIds, key: "reply" });
+  if (subreplyIds?.length) batches.push({ tipo: "subrespuesta", ids: subreplyIds, key: "subreply" });
 
-  const filters = [];
-  if (postIds.length) filters.push({ col: "post_id", ids: postIds });
-  if (commentIds.length) filters.push({ col: "comment_id", ids: commentIds });
-  if (replyIds.length) filters.push({ col: "reply_id", ids: replyIds });
-  if (subreplyIds.length) filters.push({ col: "subreply_id", ids: subreplyIds });
+  const out = { ...empty };
+  await Promise.all(
+    batches.map(async (b) => {
+      const { data, error } = await supabase
+        .from("Reportes")
+        .select("id_objetivo")
+        .eq("reportado_por", reporterId)
+        .eq("tipo_objetivo", b.tipo)
+        .in("id_objetivo", b.ids.map(String));
+      if (!error && Array.isArray(data)) {
+        data.forEach(r => out[b.key].add(String(r.id_objetivo)));
+      }
+    })
+  );
 
-  if (filters.length <= 1) {
-    if (filters.length === 1) {
-      const { col, ids } = filters[0];
-      query = query.in(col, ids);
-    }
-    const { data, error } = await query;
-    if (error) return { post: new Set(), comment: new Set(), reply: new Set(), subreply: new Set() };
-    return foldReportRows(data);
-  } else {
-    const results = await Promise.all(
-      filters.map((f) =>
-        supabase
-          .from("reports")
-          .select("post_id, comment_id, reply_id, subreply_id")
-          .eq("reporter_id", reporterId)
-          .in(f.col, f.ids)
-      )
-    );
-
-    const merged = [];
-    for (const r of results) {
-      if (!r.error && Array.isArray(r.data)) merged.push(...r.data);
-    }
-    return foldReportRows(merged);
-  }
-}
-
-/** Compacta filas en sets por tipo de target */
-function foldReportRows(rows = []) {
-  const out = { post: new Set(), comment: new Set(), reply: new Set(), subreply: new Set() };
-  rows.forEach((r) => {
-    if (r.post_id) out.post.add(String(r.post_id));
-    if (r.comment_id) out.comment.add(String(r.comment_id));
-    if (r.reply_id) out.reply.add(String(r.reply_id));
-    if (r.subreply_id) out.subreply.add(String(r.subreply_id));
-  });
   return out;
 }
