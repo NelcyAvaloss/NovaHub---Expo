@@ -32,7 +32,7 @@ async function getCurrentUserId() {
 
 /** Valida reason contra el enum local */
 function normalizeReason(reason) {
-  const r = String(reason || "").toLowerCase();
+  const r = String(reason || "");
   return REPORT_REASONS.includes(r) ? r : null;
 }
 
@@ -75,7 +75,7 @@ export async function crearReporte(params) {
     const reporterId = await getCurrentUserId();
     if (!reporterId) return { ok: false, error: "NO_AUTH", code: "NO_AUTH" };
 
-    const reason = normalizeReason(params?.reason);
+    const reason = params?.reason
     if (!reason) return { ok: false, error: "MOTIVO_INVALIDO", code: "BAD_REASON" };
 
     const payload = {

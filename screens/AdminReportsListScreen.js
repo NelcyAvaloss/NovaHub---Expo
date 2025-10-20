@@ -80,7 +80,7 @@ export default function AdminReportsListScreen({ navigation }) {
     abierto:      reports.filter(r => r.state === 'abierto').length,
     pendiente:    reports.filter(r => r.state === 'pendiente').length,
     resuelto:     reports.filter(r => r.state === 'resuelto').length,
-    sin_resolver: reports.filter(r => r.state === 'sin_resolver').length,
+    sin_resolver: reports.filter(r => r.state === 'sin resolver').length,
   }), [reports]);
 
   // Lista filtrada
@@ -125,34 +125,26 @@ export default function AdminReportsListScreen({ navigation }) {
 
 
   // ===== Acciones =====
-  const resolver = (id) => {
-    setReports(prev => prev.map(async r => {
-      if (r.id !== id) return r;
-      if (r.state === 'resuelto') {
-        if(await actualizarEstadoReporte(id, 'marcar sin resolver')){
+  const resolver = async (id) => {
+    if(await actualizarEstadoReporte(id, 'resolver')){
+      setReports(prev => prev.map(r => {
+        if (r.id !== id) return r;
         setLastChangedId(id);
-        Alert.alert('Sin resolver', `Reporte ${id} cambiado a "sin resolver".`);
-        
-        return { ...r, state: 'sin_resolver' };
-        }
-        return r;
-      }
-      if(await actualizarEstadoReporte(id, 'resolver')){
-      setLastChangedId(id);
-      Alert.alert('Resolver', `Reporte ${id} marcado como resuelto.`);
-      return { ...r, state: 'resuelto' };
-      }
-      return r;
-    }));
+        Alert.alert('Resolver', `Reporte ${id} marcado como resuelto.`);
+        return { ...r, state: 'resuelto' };
+      }));
+    };
   };
 
   const marcarSinResolver = async (id) => {
-    if(await actualizarEstadoReporte(id, 'marcar sin resolver')){
-    setReports(prev => prev.map(r => (r.id === id ? { ...r, state: 'sin_resolver' } : r)));
-    setLastChangedId(id);
-    Alert.alert('Sin resolver', `Reporte ${id} marcado como "sin resolver".`);
-    }
-    return;
+      setReports(prev => prev.map( async r => {
+        if (r.id !== id) return r;    
+        if(await actualizarEstadoReporte(id, 'marcar sin resolver')){
+            setLastChangedId(id);
+            Alert.alert('Sin resolver', `Reporte ${id} marcado como "sin resolver".`);
+            return { ...r, state: 'sin resolver' };
+        };
+      }));
   };
 
   const openReport = (id) => {
@@ -185,7 +177,7 @@ export default function AdminReportsListScreen({ navigation }) {
   const chipPalette = (state, kind) => {
     const active =
       (kind === 'resolve'   && state === 'resuelto') ||
-      (kind === 'unresolve' && state === 'sin_resolver');
+      (kind === 'unresolve' && state === 'no resuelto');
 
     return {
       wrap: [s.chipAction, active && s.chipPrimary],
@@ -452,12 +444,12 @@ export default function AdminReportsListScreen({ navigation }) {
 
                 {/* Acciones rápidas */}
                 <View style={s.chipRow}>
-                  <Pressable style={pr.wrap} onPress={() => resolver(r.id)}>
+                  <Pressable style={pr.wrap} onPress={async () => await resolver(r.id)}>
                     <Ionicons name="checkmark-circle" size={14} color={pr.iconColor} />
                     <Text style={pr.textStyle}>Resolver</Text>
                   </Pressable>
 
-                  <Pressable style={pu.wrap} onPress={() => marcarSinResolver(r.id)}>
+                  <Pressable style={pu.wrap} onPress={async () => await marcarSinResolver(r.id)}>
                     <Ionicons name="help-circle" size={14} color={pu.iconColor} />
                     <Text style={pu.textStyle}>Sin resolver</Text>
                   </Pressable>
