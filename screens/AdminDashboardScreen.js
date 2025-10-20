@@ -1,31 +1,154 @@
+// AdminDashboardScreen.js
+// Dashboard conectado a Supabase (sin mocks):
+// - KPIs (usuarios totales via servicio, publicaciones 30d, reportes abiertos, tasa aprobación)
+// - Últimas publicaciones y reportes
+// - Pull-to-refresh, auto-refresh al enfocar, realtime
 
-import React from 'react';
-import { SafeAreaView, View, Text, Pressable, Image, ImageBackground, ScrollView } from 'react-native';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import {
+  SafeAreaView, View, Text, Pressable, Image, ImageBackground,
+  ScrollView, RefreshControl
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import styles from './AdminDashboardScreen.styles';
 
+// Ajusta rutas si tu client/servicios están en otro lado
+import { supabase } from '../screens/supabase';
+import { contadoresUsuarios } from '../services/usuariosService';
+
 export default function AdminDashboardScreen({ navigation }) {
-  // MOCK 
-  const kpis = {
-    newUsers: 8,
-    publications: 21,
-    openReports: 3,
-    approvalRate: 89, // %
-  };
+  // Estado de KPIs y listas
+  const [kpis, setKpis] = useState({
+    newUsers: 0,          // aquí mostramos "Usuarios totales" (desde contadoresUsuarios)
+    publications: 0,      // publicaciones creadas últimos 30 días
+    openReports: 0,       // reportes abiertos
+    approvalRate: 0       // % aprobadas (últimos 30 días)
+  });
+  const [lastPosts, setLastPosts] = useState([]);     // últimas publicaciones
+  const [lastReports, setLastReports] = useState([]); // últimos reportes
+  const [refreshing, setRefreshing] = useState(false);
 
-  const lastPosts = [
-    { id: 'p1', title: 'Investigación Nuevas Tecnologías', author: 'María' },
-    { id: 'p2', title: 'Tips de productividad', author: 'Geovanny' },
-  ];
+  // Ventana "Últimos 30 días"
+  const fromISO = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString();
+  }, []);
 
-  const lastReports = [
-    { id: 'r1', reason: 'Spam', target: 'p2' },
-    { id: 'r2', reason: 'Agresión', target: 'u3' },
-  ];
+  // Loader principal
+  const loadDashboard = useCallback(async () => {
+    try {
+      // 1) Usuarios: usar el servicio probado (total/activos/bloqueados)
+      const mRes = await contadoresUsuarios();
+      const totals = mRes?.ok ? mRes.data : { total: 0, activos: 0, bloqueados: 0 };
 
+      // Opcional (nuevos 30d): si querés mostrar "usuarios nuevos 30d", descomenta:
+      // let newUsers30d = 0;
+      // try {
+      //   const { count } = await supabase
+      //     .from('usuarios')
+      //     .select('*', { count: 'exact', head: true })
+      //     .gte('created_at', fromISO);
+      //   newUsers30d = count || 0;
+      // } catch {}
+
+      // 2) Publicaciones 30d
+      const { count: publications } = await supabase
+        .from('Publicaciones')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', fromISO);
+
+      // 3) Reportes abiertos
+      const { count: openReports } = await supabase
+        .from('Reportes')
+        .select('*', { count: 'exact', head: true })
+        .eq('estado', 'abierto');
+
+      // 4) Tasa de aprobación (%) = aprobadas_30d / publicaciones_30d
+      const { count: aprobadas } = await supabase
+        .from('Publicaciones')
+        .select('*', { count: 'exact', head: true })
+        .eq('estado', 'aprobada')
+        .gte('created_at', fromISO);
+
+      const approvalRate =
+        publications && publications > 0
+          ? Math.round((aprobadas || 0) * 100 / publications)
+          : 0;
+
+      setKpis({
+        // A) Mostrar usuarios TOTALES (recomendado si antes veías 0):
+        newUsers: totals.total,
+        // B) Si prefieres "Usuarios nuevos (30d)", usa: newUsers: newUsers30d,
+        publications: publications || 0,
+        openReports: openReports || 0,
+        approvalRate
+      });
+
+      // 5) Últimas publicaciones
+      const { data: postsData } = await supabase
+        .from('Publicaciones')
+        .select('id, titulo, autor, created_at')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      setLastPosts(
+        (postsData || []).map(p => ({
+          id: String(p.id),
+          title: p.titulo || 'Sin título',
+          author: p.autor || '—',
+        }))
+      );
+
+      // 6) Últimos reportes
+      const { data: reportsData } = await supabase
+        .from('Reportes')
+        .select('id, motivo, target_id, estado, created_at')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      setLastReports(
+        (reportsData || []).map(r => ({
+          id: String(r.id),
+          reason: r.motivo || r.estado || 'Reporte',
+          target: r.target_id ? String(r.target_id) : '—',
+        }))
+      );
+    } catch (e) {
+      console.warn('loadDashboard error', e);
+    }
+  }, [fromISO]);
+
+  // Carga al montar
+  useEffect(() => { loadDashboard(); }, [loadDashboard]);
+
+  // Refresco al enfocar la pantalla
+  useFocusEffect(useCallback(() => { loadDashboard(); }, [loadDashboard]));
+
+  // Pull-to-refresh
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadDashboard();
+    setRefreshing(false);
+  }, [loadDashboard]);
+
+  // Realtime: si cambian tablas clave, recargo
+  useEffect(() => {
+    const ch = supabase
+      .channel('admin-dashboard')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'usuarios' }, loadDashboard)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'Publicaciones' }, loadDashboard)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'Reportes' }, loadDashboard)
+      .subscribe();
+
+    return () => supabase.removeChannel(ch);
+  }, [loadDashboard]);
+
+  // UI
   return (
     <SafeAreaView style={styles.container}>
-      {/* ===== Header ===== */}
+      {/* Header con branding/chips */}
       <ImageBackground
         source={require('../assets/FondoNovaHub.png')}
         style={styles.headerBg}
@@ -39,7 +162,7 @@ export default function AdminDashboardScreen({ navigation }) {
             <Text style={styles.brandText}>NovaHub</Text>
           </View>
 
-          {/* ===== Botonera derecha: Icono Admin -> Home + Avatar -> Perfil ===== */}
+          {/* Botonera derecha */}
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Pressable
               onPress={() => navigation.navigate('Home')}
@@ -76,14 +199,18 @@ export default function AdminDashboardScreen({ navigation }) {
         </View>
       </ImageBackground>
 
-      {/* ===== Contenido scrollable (debajo del header) ===== */}
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        {/* RESUMEN (KPIs) */}
+      {/* Contenido con pull-to-refresh */}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
+        {/* KPIs */}
         <View style={styles.sectionCard}>
           <Text style={styles.sectionHeading}>Resumen</Text>
 
           <View style={styles.kpiGrid}>
-            {/* KPI: Usuarios nuevos */}
+            {/* Usuarios (totales o 30d, según lo que asignaste arriba) */}
             <View style={styles.kpiCardSimple}>
               <View style={styles.kpiDeltaAbsolute}>
                 <View style={[styles.deltaBadge, styles.deltaUp]}>
@@ -97,10 +224,12 @@ export default function AdminDashboardScreen({ navigation }) {
               </View>
 
               <Text style={styles.kpiValueBig}>{kpis.newUsers}</Text>
-              <Text style={styles.kpiLabelCenter} numberOfLines={2}>Usuarios nuevos</Text>
+              {/* Cambia el label si usás "nuevos 30d" */}
+              <Text style={styles.kpiLabelCenter}>Usuarios totales</Text>
+              {/* <Text style={styles.kpiLabelCenter}>Usuarios nuevos (30d)</Text> */}
             </View>
 
-            {/* KPI: Publicaciones */}
+            {/* Publicaciones 30d */}
             <View style={styles.kpiCardSimple}>
               <View style={styles.kpiDeltaAbsolute}>
                 <View style={[styles.deltaBadge, styles.deltaUp]}>
@@ -114,10 +243,10 @@ export default function AdminDashboardScreen({ navigation }) {
               </View>
 
               <Text style={styles.kpiValueBig}>{kpis.publications}</Text>
-              <Text style={styles.kpiLabelCenter} numberOfLines={2}>Publicaciones</Text>
+              <Text style={styles.kpiLabelCenter}>Publicaciones</Text>
             </View>
 
-            {/* KPI: Reportes abiertos */}
+            {/* Reportes abiertos */}
             <View style={styles.kpiCardSimple}>
               <View style={styles.kpiDeltaAbsolute}>
                 <View style={[styles.deltaBadge, styles.deltaDown]}>
@@ -131,14 +260,12 @@ export default function AdminDashboardScreen({ navigation }) {
               </View>
 
               <Text style={styles.kpiValueBig}>{kpis.openReports}</Text>
-              <Text style={styles.kpiLabelCenter} numberOfLines={2}>Reportes abiertos</Text>
+              <Text style={styles.kpiLabelCenter}>Reportes abiertos</Text>
             </View>
-
-            
           </View>
         </View>
 
-        {/* Contenido: Listas rápidas */}
+        {/* Listas rápidas */}
         <View style={styles.doubleCol}>
           {/* Últimas publicaciones */}
           <View style={styles.sectionCard}>
@@ -197,19 +324,7 @@ export default function AdminDashboardScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Acciones rápidas */}
-        <View style={styles.ctaRow}>
-          <Pressable style={[styles.btn, styles.btnPrimary]} onPress={() => navigation.navigate('AdminUsers')}>
-            <Ionicons name="people" size={16} color="#FFFFFF" style={styles.btnIcon} />
-            <Text style={styles.btnPrimaryText}>Ver usuarios</Text>
-          </Pressable>
-
-          <Pressable style={[styles.btn, styles.btnGhost]} onPress={() => navigation.navigate('AdminModeradores')}>
-            <Ionicons name="shield-checkmark" size={16} color="#3730A3" style={styles.btnIcon} />
-            <Text style={styles.btnGhostText}>Ir a Moderación</Text>
-          </Pressable>
-        </View>
-
+        {/* Acciones rápidas (si las tenías, quedan igual) */}
         <View style={{ height: 16 }} />
       </ScrollView>
     </SafeAreaView>

@@ -125,16 +125,23 @@ export default function AdminReportsListScreen({ navigation }) {
 
 
   // ===== Acciones =====
-  const resolver = async (id) => {
-    if(await actualizarEstadoReporte(id, 'resolver')){
-      setReports(prev => prev.map(r => {
-        if (r.id !== id) return r;
-        setLastChangedId(id);
-        Alert.alert('Resolver', `Reporte ${id} marcado como resuelto.`);
-        return { ...r, state: 'resuelto' };
-      }));
-    };
-  };
+const resolver = async (id) => {
+  // si tu backend espera "resuelto", mándale eso (no "resolver")
+  const ok = await actualizarEstadoReporte(Number(id), 'resuelto');
+  if (!ok) return;
+
+  // ✅ actualiza el mismo campo que renderiza tu UI (estado / status)
+  setReports(prev => prev.map(r =>
+    String(r.id) === String(id)
+      ? { ...r, estado: 'resuelto' }  // <-- usa "estado" si eso renderiza tu card
+      : r
+  ));
+
+  // efectos FUERA del setState
+  setLastChangedId(id);
+  Alert.alert('Resolver', `Reporte ${id} marcado como resuelto.`);
+};
+
 
   const marcarSinResolver = async (id) => {
       setReports(prev => prev.map( async r => {
