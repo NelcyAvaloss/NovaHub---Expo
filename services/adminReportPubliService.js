@@ -22,16 +22,44 @@ async function obtenerNombreUsuario(userId){
     }
     return data.nombre;
 }
+async function obtenerNombreObjetivo(tipoObjetivo, objetivoId){
+        const tabla_tipo={
+            'publicacion':'Publicaciones',
+            'comentario':'Comentarios',
+            'respuesta':'Respuestas',
+            'sub respuesta':'Sub_Respuestas',
+            'usuario':'usuarios'
+        };
+        const campo_tipo={
+            'publicacion':'titulo',
+            'comentario':'contenido',
+            'respuesta':'contenido',
+            'sub respuesta':'contenido',
+            'usuario':'nombre'
+        };
+
+        const { data, error } = await supabase
+        .from(tabla_tipo[tipoObjetivo])
+        .select(campo_tipo[tipoObjetivo])
+        .eq('id', objetivoId)
+        .single();
+        if (error) {
+            console.error('Error al obtener nombre del objetivo:', error);
+            return null;
+        }
+        return data[campo_tipo[tipoObjetivo]];
+}
 
 async function mapearReporte(reporte){
     const nombreUsuario = await obtenerNombreUsuario(reporte.reportado_por);
+    const targetId = await obtenerNombreObjetivo(reporte.tipo_objetivo, reporte.id_objetivo);
     return {
         id: reporte.id,
         reason: reporte.razón,
         category: reporte.razón,
         state: reporte.estado,
         targetType: reporte.tipo_objetivo,
-        targetId: "A",//reporte.id_objetivo,
+        targetId: targetId,
         reporter: nombreUsuario,
         details: reporte.detalles,
         createdAt: reporte.fecha

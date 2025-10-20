@@ -380,7 +380,7 @@ export default function AdminReportDetallScreen({ route, navigation }) {
               <Text style={s.btnPrimaryText}>
                 {reportState === 'resuelto'
                   ? 'Resuelto'
-                  : reportState === 'sin_resolver'
+                  : reportState === 'no resuelto'
                   ? 'Sin resolver'
                   : 'Resolver'}
               </Text>

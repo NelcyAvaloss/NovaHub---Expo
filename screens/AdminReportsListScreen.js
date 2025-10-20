@@ -21,7 +21,7 @@ const TABS = [
   { key: 'abierto',       label: 'Abiertos' },
   { key: 'pendiente',     label: 'Pendientes' },
   { key: 'resuelto',      label: 'Resueltos' },
-  { key: 'sin_resolver',  label: 'Sin resolver' },
+  { key: 'no resuelto',  label: 'Sin resolver' },
 ];
 
 const REPORT_CATEGORIES = [
@@ -137,14 +137,14 @@ export default function AdminReportsListScreen({ navigation }) {
   };
 
   const marcarSinResolver = async (id) => {
-      setReports(prev => prev.map( async r => {
-        if (r.id !== id) return r;    
-        if(await actualizarEstadoReporte(id, 'marcar sin resolver')){
-            setLastChangedId(id);
-            Alert.alert('Sin resolver', `Reporte ${id} marcado como "sin resolver".`);
-            return { ...r, state: 'sin resolver' };
-        };
+    if(await actualizarEstadoReporte(id, 'marcar sin resolver')){
+      setReports(prev => prev.map(r => {
+        if (r.id !== id) return r;
+        setLastChangedId(id);
+        Alert.alert('Sin resolver', `Reporte ${id} marcado como "sin resolver".`);
+        return { ...r, state: 'no resuelto' };
       }));
+    };
   };
 
   const openReport = (id) => {
