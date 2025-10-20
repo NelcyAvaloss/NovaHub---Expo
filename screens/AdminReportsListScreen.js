@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import s from './AdminReportsListScreen.styles';
+import { obtenerReportes, actualizarEstadoReporte } from '../services/adminReportPubliService';
 
 const TABS = [
   { key: 'todos',         label: 'Todos' },
@@ -44,6 +45,8 @@ const INITIAL = [
   { id: 'r7', reason: 'Spam en comentarios',state: 'pendiente', targetType: 'comentario',  targetId: 'c21', reporter: 'Diana', createdAt: '2025-10-13 10:48', category: 'Spam' },
 ];
 
+
+
 export default function AdminReportsListScreen({ navigation }) {
   const [reports, setReports] = React.useState(INITIAL);
 
@@ -52,6 +55,7 @@ export default function AdminReportsListScreen({ navigation }) {
 
   // para resaltar la tarjeta que cambió de estado
   const [lastChangedId, setLastChangedId] = React.useState(null);
+  
   React.useEffect(() => {
     if (!lastChangedId) return;
     const t = setTimeout(() => setLastChangedId(null), 900);
@@ -86,7 +90,8 @@ export default function AdminReportsListScreen({ navigation }) {
       .filter(r => {
         if (onlyUsers && r.targetType !== 'usuario') return false;
         if (onlyPosts && r.targetType !== 'publicacion') return false;
-        if (onlyComments && r.targetType !== 'comentario') return false;
+        // Comentarios, respuestas y subrespuestas se consideran "comentarios"
+        if (onlyComments && (r.targetType === 'comentario' || r.targetType === 'respuesta' || r.targetType === 'sub respuesta')) return false;
         return true;
       })
       .filter(r => {
@@ -110,25 +115,44 @@ export default function AdminReportsListScreen({ navigation }) {
     return { box: s.badgeBlue, text: s.badgeTextInfo, icon: 'information-circle' };
   };
 
+  React.useEffect(() => {
+    const fetchData = async () => {
+      const reportes = await obtenerReportes();
+      setReports(reportes);
+    };
+    fetchData();
+  }, []);
+
+
   // ===== Acciones =====
   const resolver = (id) => {
-    setReports(prev => prev.map(r => {
+    setReports(prev => prev.map(async r => {
       if (r.id !== id) return r;
       if (r.state === 'resuelto') {
+        if(await actualizarEstadoReporte(id, 'marcar sin resolver')){
         setLastChangedId(id);
         Alert.alert('Sin resolver', `Reporte ${id} cambiado a "sin resolver".`);
+        
         return { ...r, state: 'sin_resolver' };
+        }
+        return r;
       }
+      if(await actualizarEstadoReporte(id, 'resolver')){
       setLastChangedId(id);
       Alert.alert('Resolver', `Reporte ${id} marcado como resuelto.`);
       return { ...r, state: 'resuelto' };
+      }
+      return r;
     }));
   };
 
-  const marcarSinResolver = (id) => {
+  const marcarSinResolver = async (id) => {
+    if(await actualizarEstadoReporte(id, 'marcar sin resolver')){
     setReports(prev => prev.map(r => (r.id === id ? { ...r, state: 'sin_resolver' } : r)));
     setLastChangedId(id);
     Alert.alert('Sin resolver', `Reporte ${id} marcado como "sin resolver".`);
+    }
+    return;
   };
 
   const openReport = (id) => {
@@ -142,7 +166,6 @@ export default function AdminReportsListScreen({ navigation }) {
     }
     setLastChangedId(id);
 
-    // 3) Mapa tipo -> nombre de ruta EXACTO (como lo registraste en RootStack.Screen)
     const routeByType = {
       publicacion: 'AdminReportPublicDetall',
       usuario:     'AdminReportUserDetall',
@@ -415,7 +438,7 @@ export default function AdminReportsListScreen({ navigation }) {
                         '#1E3A8A'
                       }
                     />
-                    <Text style={b.text}>{r.state.replace('_', ' ')}</Text>
+                    <Text style={b.text}>{r.state}</Text>
                   </View>
                 </View>
 

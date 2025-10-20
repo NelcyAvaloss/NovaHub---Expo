@@ -1,5 +1,4 @@
-// screens/HomeScreen.js
-import React, { useRef, useCallback, useEffect, useState } from 'react';
+import React, { useRef, useCallback, useEffect, useState, useMemo } from 'react';
 import {
   FlatList,
   View,
@@ -9,12 +8,18 @@ import {
   ImageBackground,
   TextInput,
   Animated,
+  Easing,
   Alert,
-  StyleSheet,
+  Dimensions,
+  Pressable,
+  LayoutAnimation,
+  UIManager,
+  Platform,
 } from 'react-native';
-import { useIsFocused, useFocusEffect } from '@react-navigation/native'; // 🔥 CAMBIO: useFocusEffect (motivo: canal por foco)
+import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import { styles } from './Home.styles';
 import { supabase } from './supabase';
+import { Ionicons } from '@expo/vector-icons';
 
 const likeIcon = require('../assets/IconoLike.png');
 const likeIconActive = require('../assets/Icono_LikeActivo.png');
@@ -24,6 +29,31 @@ const dislikeIconActive = require('../assets/Icono_DislikeActivo.png');
 const ROLE_ADMIN = 'administrador';
 const ROLE_STUDENT = 'estudiante';
 
+/* ==== Config carrusel categorías (inline) ==== */
+const { width } = Dimensions.get('window');
+const CARD_WIDTH = Math.round(width * 0.30);
+const SPACING = 22; // se puede bajar a 18 para que quede aún más compacto horizontal
+const ITEM_SIZE = CARD_WIDTH + SPACING;
+const SIDE_PADDING = (width - CARD_WIDTH) / 2;
+const CARD_RADIUS = 18;
+
+// Ajuste fino de alturas para eliminar espacio extra
+const CARD_HEIGHT = 160;      // coincide con el alto de styles.catsCardImage
+const CATS_TOP_OPEN = 2;      // pequeño respiro arriba cuando está abierto
+const TARGET_HEIGHT = CARD_HEIGHT + CATS_TOP_OPEN; // 162 px al abrir
+
+const CATS_DATA = [
+  { id: 'cat1', nombre: 'Ciencia y Tecnología', img: require('../assets/categorias/ciencia_tecnologia.jpg') },
+  { id: 'cat2', nombre: 'Farmacología',         img: require('../assets/categorias/farmacologia.jpg') },
+  { id: 'cat3', nombre: 'Medicina',             img: require('../assets/categorias/medicina.jpg') },
+  { id: 'cat4', nombre: 'Ingeniería',           img: require('../assets/categorias/ingenieria.png') },
+  { id: 'cat5', nombre: 'Educación',            img: require('../assets/categorias/educacion.jpg') },
+];
+const LOOPS = 7;
+const TOTAL = CATS_DATA.length * LOOPS;
+const START_INDEX = Math.floor(TOTAL / 2);
+/* ============================================= */
+
 export default function HomeScreen({ navigation }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const flatListRef = useRef(null);
@@ -32,24 +62,155 @@ export default function HomeScreen({ navigation }) {
   const [publicaciones, setPublicaciones] = useState([]);
   const [votesMap, setVotesMap] = useState({});
   const [rolUsuario, setRolUsuario] = useState(null);
-
   const [menuPubId, setMenuPubId] = useState(null);
+
+  // === Toggle carrusel (entre header y buscador) con LayoutAnimation ===
+  const [catsOpen, setCatsOpen] = useState(false);
+  const [catsHeight, setCatsHeight] = useState(0);
+  const catsOpacity = useRef(new Animated.Value(0)).current;
+
+  // Habilitar LayoutAnimation en Android
+  useEffect(() => {
+    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+  }, []);
+
+  const toggleCats = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    const willOpen = !catsOpen;
+    setCatsOpen(willOpen);
+    setCatsHeight(willOpen ? TARGET_HEIGHT : 0);
+    Animated.timing(catsOpacity, {
+      toValue: willOpen ? 1 : 0,
+      duration: 200,
+      useNativeDriver: true,
+      easing: Easing.out(Easing.cubic),
+    }).start();
+  }, [catsOpen, catsOpacity]);
+
+  // ====== Carrusel refs y animaciones ======
+  const LOOP_DATA = useMemo(
+    () => Array.from({ length: LOOPS }).flatMap((_, i) =>
+      CATS_DATA.map((item) => ({ ...item, _key: `${item.id}-${i}` }))
+    ),
+    []
+  );
+  const catsListRef = useRef(null);
+  const scrollX = useRef(new Animated.Value(START_INDEX * ITEM_SIZE)).current;
+  const offsetRef = useRef(START_INDEX * ITEM_SIZE);
+  const [currentIndex, setCurrentIndex] = useState(START_INDEX);
+  const autoplayRef = useRef(null);
+  const auto = useRef(new Animated.Value(offsetRef.current)).current;
+  const autoAnimRef = useRef(null);
+
+  const indexFromOffset = (x) => Math.round(x / ITEM_SIZE);
+  const offsetFromIndex = (i) => i * ITEM_SIZE;
+
+  const recenterIfNeeded = () => {
+    const idx = indexFromOffset(offsetRef.current);
+    if (idx <= CATS_DATA.length) {
+      const newIndex = idx + CATS_DATA.length * Math.floor(LOOPS / 2);
+      catsListRef.current?.scrollToOffset({ offset: offsetFromIndex(newIndex), animated: false });
+      setCurrentIndex(newIndex);
+      offsetRef.current = offsetFromIndex(newIndex);
+    } else if (idx >= TOTAL - CATS_DATA.length) {
+      const newIndex = idx - CATS_DATA.length * Math.floor(LOOPS / 2);
+      catsListRef.current?.scrollToOffset({ offset: offsetFromIndex(newIndex), animated: false });
+      setCurrentIndex(newIndex);
+      offsetRef.current = offsetFromIndex(newIndex);
+    }
+  };
+
+  const autoScrollToIndex = (nextIndex, duration = 900) => {
+    if (autoAnimRef.current) auto.stopAnimation();
+    auto.setValue(offsetRef.current);
+
+    const listenerId = auto.addListener(({ value }) => {
+      offsetRef.current = value;
+      catsListRef.current?.scrollToOffset({ offset: value, animated: false });
+    });
+
+    autoAnimRef.current = Animated.timing(auto, {
+      toValue: offsetFromIndex(nextIndex),
+      duration,
+      easing: Easing.inOut(Easing.cubic),
+      useNativeDriver: false,
+    });
+
+    autoAnimRef.current.start(({ finished }) => {
+      auto.removeListener(listenerId);
+      if (finished) {
+        setCurrentIndex(nextIndex);
+        recenterIfNeeded();
+      }
+    });
+  };
+
+  const startAutoplay = () => {
+    stopAutoplay();
+    autoplayRef.current = setInterval(() => {
+      const base = indexFromOffset(offsetRef.current);
+      autoScrollToIndex(base + 1, 900);
+    }, 3600);
+  };
+
+  const stopAutoplay = () => {
+    if (autoplayRef.current) clearInterval(autoplayRef.current);
+    autoplayRef.current = null;
+    if (autoAnimRef.current) {
+      auto.stopAnimation();
+      autoAnimRef.current = null;
+    }
+  };
+
+  // Autoplay SIEMPRE activo (independiente de abrir/cerrar)
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      catsListRef.current?.scrollToOffset({ offset: offsetRef.current, animated: false });
+      startAutoplay();
+    });
+    return stopAutoplay;
+  }, []);
+
+  const onScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+    {
+      useNativeDriver: true,
+      listener: (e) => {
+        offsetRef.current = e.nativeEvent.contentOffset.x;
+      },
+    }
+  );
+
+  const onScrollBeginDrag = () => {
+    stopAutoplay(); // pausar durante el drag
+  };
+
+  const onMomentumScrollEnd = (e) => {
+    const x = e.nativeEvent.contentOffset.x;
+    const idx = indexFromOffset(x);
+    setCurrentIndex(idx);
+    offsetRef.current = x;
+    recenterIfNeeded();
+    setTimeout(startAutoplay, 300); // reanudar
+  };
+
   const REPORT_REASONS = [
-    { key: 'spam',               label: 'Spam' },
-    { key: 'agresion',           label: 'Agresión' },
-    { key: 'nsfw',               label: 'NSFW (contenido sensible)' },
+    { key: 'spam', label: 'Spam' },
+    { key: 'agresion', label: 'Agresión' },
+    { key: 'nsfw', label: 'NSFW (contenido sensible)' },
     { key: 'contenido_enganoso', label: 'Contenido engañoso' },
-    { key: 'sin_clasificar',     label: 'Reporte sin clasificar' },
+    { key: 'sin_clasificar', label: 'Reporte sin clasificar' },
   ];
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportTarget, setReportTarget] = useState(null);
   const [reportReason, setReportReason] = useState('spam');
   const [reportNote, setReportNote] = useState('');
 
-  // 🔥 CAMBIO: guardo referencia del canal para poder cerrarlo al perder foco
   const homeChRef = useRef(null);
 
-  // ===== Utils rol =====
+  /* ===== Utils rol ===== */
   const getRolFromUser = (user) => {
     const metaRol = user?.user_metadata?.rol;
     const low = typeof metaRol === 'string' ? metaRol.toLowerCase() : null;
@@ -83,19 +244,16 @@ export default function HomeScreen({ navigation }) {
 
     if (userId) {
       const q1 = await supabase.from('usuarios').select('*').eq('id', userId).maybeSingle();
-      if (q1.error) console.log('[Home] usuarios.id error:', q1.error.message);
       const r1 = inferRoleFromRow(q1.data);
       if (r1) return r1;
     }
     if (userId) {
       const q2 = await supabase.from('usuarios').select('*').eq('auth_id', userId).maybeSingle();
-      if (q2.error) console.log('[Home] usuarios.auth_id error:', q2.error.message);
       const r2 = inferRoleFromRow(q2.data);
       if (r2) return r2;
     }
     if (email) {
       const q3 = await supabase.from('usuarios').select('*').ilike('email', email).maybeSingle();
-      if (q3.error) console.log('[Home] usuarios.email error:', q3.error.message);
       const r3 = inferRoleFromRow(q3.data);
       if (r3) return r3;
     }
@@ -104,22 +262,21 @@ export default function HomeScreen({ navigation }) {
 
   const fetchRol = async (why = '') => {
     try {
-      const { data: sessionRes, error: sessionErr } = await supabase.auth.getUser();
-      if (sessionErr) console.log('[Home] getUser error:', sessionErr.message);
-      const user = sessionRes?.user;
-      if (!user) { setRolUsuario(null); return; }
+      const { data, error } = await supabase.auth.getUser();
+      const user = data?.user || null;
+      if (error || !user) { setRolUsuario(null); return; }
+
       const meta = getRolFromUser(user);
       if (meta) { setRolUsuario(meta); return; }
       const dbRol = await fetchRolFromUsuarios(user);
       if (dbRol) { setRolUsuario(dbRol); return; }
       setRolUsuario(ROLE_STUDENT);
-    } catch (e) {
-      console.log('[Home] exception fetchRol:', e, { why });
-      setRolUsuario(ROLE_STUDENT);
+    } catch {
+      setRolUsuario(null);
     }
   };
 
-  // ===== auth / foco =====
+  /* ===== auth / foco ===== */
   useEffect(() => {
     fetchRol('mount');
     const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -146,27 +303,24 @@ export default function HomeScreen({ navigation }) {
     }
   }, [isFocused]);
 
-  // ---------- publicaciones + votos (ATADO AL FOCO) ----------
+  // ---------- publicaciones + votos ----------
   useFocusEffect(
     React.useCallback(() => {
-      let isActive = true; // evita setState tras blur si llega tarde una promesa
+      let isActive = true;
 
       const init = async () => {
-        // 1) cargar feed inicial
-        const pubs = await obtenerPublicaciones(); // 🔥 CAMBIO: solo “publicada”
+        const pubs = await obtenerPublicaciones();
         if (!isActive) return;
         setPublicaciones(pubs || []);
         seedVotesFromItems(pubs || []);
         await cargarVotos(pubs || []);
 
-        // 2) MATAR canales viejos por topic (por si hot-reload dejó residuos)
         const TOPIC = 'home-publicaciones';
         supabase.getChannels().forEach((ch) => {
-          if (ch?.topic === TOPIC) supabase.removeChannel(ch); // 🔥 CAMBIO: barrido por topic
+          if (ch?.topic === TOPIC) supabase.removeChannel(ch);
         });
 
-        // 3) crear canal fresco y suscribir 1 sola vez
-        homeChRef.current = supabase.channel('home-publicaciones'); // 🔥 CAMBIO: canal por foco
+        homeChRef.current = supabase.channel('home-publicaciones');
         homeChRef.current.on(
           'postgres_changes',
           { event: 'UPDATE', schema: 'public', table: 'Publicaciones' },
@@ -175,14 +329,12 @@ export default function HomeScreen({ navigation }) {
             if (!row?.id) return;
             const st = row.estado_de_revision;
 
-            // si dejó de ser pública → fuera del feed
             if (st !== 'publicada') {
               setPublicaciones(prev => prev.filter(p => p.id !== row.id));
               setVotesMap(prev => { const n = { ...prev }; delete n[row.id]; return n; });
               return;
             }
 
-            // si pasó a pública → refresco de esa fila
             try {
               const { data, error } = await supabase
                 .from('Publicaciones')
@@ -203,16 +355,15 @@ export default function HomeScreen({ navigation }) {
             } catch {}
           }
         );
-        homeChRef.current.subscribe(); // 🔥 CAMBIO: subscribe único
+        homeChRef.current.subscribe();
       };
 
       init();
 
-      // cleanup cuando Home pierde foco
       return () => {
         isActive = false;
         if (homeChRef.current) {
-          supabase.removeChannel(homeChRef.current); // 🔥 CAMBIO: cerrar canal al blur
+          supabase.removeChannel(homeChRef.current);
           homeChRef.current = null;
         }
       };
@@ -237,22 +388,32 @@ export default function HomeScreen({ navigation }) {
     });
   };
 
-  const handlePressIn = useCallback(() => {
-    Animated.spring(scaleAnim, { toValue: 1.2, useNativeDriver: true }).start();
-  }, [scaleAnim]);
-
-  const handlePressOut = useCallback(() => {
-    Animated.spring(scaleAnim, {
-      toValue: 1, friction: 3, tension: 40, useNativeDriver: true,
-    }).start(() => navigation.navigate('CrearPublicacion'));
-  }, [navigation, scaleAnim]);
-
   const irADetalle = useCallback(
     (pub) => navigation.navigate('DetallePublicacion', { publicacion: pub }),
     [navigation]
   );
 
-  // 🔥 CAMBIO: SOLO publicaciones “publicada” (oculta eliminadas/rechazadas)
+  const getAuthorIdFromItem = (item) => {
+    return (
+      item?.id_usuario ??
+      item?.usuario_id ??
+      item?.user_id ??
+      item?.autor_id ??
+      item?.author_id ??
+      null
+    );
+  };
+
+  const openPerfilAutor = useCallback((item) => {
+    const perfil = {
+      id: getAuthorIdFromItem(item),
+      nombre: item?.autor || 'Autor',
+      email: null,
+      avatarUri: null,
+    };
+    navigation.navigate('PerfilUsuario', { perfil });
+  }, [navigation]);
+
   const obtenerPublicaciones = async () => {
     const { data, error } = await supabase
       .from('Publicaciones')
@@ -262,7 +423,6 @@ export default function HomeScreen({ navigation }) {
       .limit(100);
 
     if (error) {
-      console.error('Error al obtener publicaciones:', error);
       Alert.alert('Error', 'No se pudieron cargar las publicaciones.');
       return [];
     }
@@ -281,20 +441,18 @@ export default function HomeScreen({ navigation }) {
     const { data: sessionRes } = await supabase.auth.getUser();
     const userId = sessionRes?.user?.id || null;
 
-    const { data: totalsRows, error: eTotals } = await supabase
+    const { data: totalsRows } = await supabase
       .from('votos_totales')
       .select('*')
       .in('id_publicacion', pubIds);
-    if (eTotals) { console.error('Error totals:', eTotals); return; }
 
     let myVotesRows = [];
     if (userId) {
-      const { data: myRows, error: eMy } = await supabase
+      const { data: myRows } = await supabase
         .from('votos')
         .select('id_publicacion, valor')
         .eq('id_usuario', userId)
         .in('id_publicacion', pubIds);
-      if (eMy) console.error('Error myVotes:', eMy);
       myVotesRows = myRows || [];
     }
 
@@ -358,7 +516,6 @@ export default function HomeScreen({ navigation }) {
       }
       await cargarVotos([{ id: pubId }]);
     } catch (err) {
-      console.error('Error al votar:', err);
       Alert.alert('Error', 'No se pudo registrar tu voto.');
       await cargarVotos([{ id: pubId }]);
     }
@@ -376,7 +533,7 @@ export default function HomeScreen({ navigation }) {
           accion: 'reporte',
           motivo,
           nota: nota || null,
-          id_usuario: uid, // si tu tabla no tiene esta col, bórrala
+          id_usuario: uid,
         }]);
 
       if (error) throw error;
@@ -387,148 +544,103 @@ export default function HomeScreen({ navigation }) {
       setMenuPubId(null);
       Alert.alert('Gracias', 'Tu reporte fue enviado.');
     } catch (e) {
-      console.log('reportarPublicacion error:', e);
       Alert.alert('Error', 'No se pudo enviar el reporte.');
     }
   };
 
-  const renderItem = useCallback(
-    ({ item }) => {
-      const colaboradores = (item?.equipo_colaborador || '')
-        .split(',').map((s) => s.trim()).filter(Boolean);
+  // === gap dinámico bajo el icono (cerrado perfecto / abierto compacto) ===
+  const gapBelowIcon = catsOpen ? 4 : 14;
 
-      const v = votesMap[item.id] || {
-        likes: item.likes_count ?? item.likes ?? 0,
-        dislikes: item.dislikes_count ?? item.dislikes ?? 0,
-        myVote: 0,
-      };
-      const { likes, dislikes, myVote } = v;
+  const renderItem = useCallback(
+    ({ item, index }) => {
+      const inputRange = [
+        (index - 1) * ITEM_SIZE,
+        index * ITEM_SIZE,
+        (index + 1) * ITEM_SIZE,
+      ];
+      const scale = scrollX.interpolate({
+        inputRange,
+        outputRange: [0.92, 1, 0.92],
+        extrapolate: 'clamp',
+      });
+      const opacity = scrollX.interpolate({
+        inputRange,
+        outputRange: [0.75, 1, 0.75],
+        extrapolate: 'clamp',
+      });
+      const glowOpacity = scrollX.interpolate({
+        inputRange,
+        outputRange: [0, 0.35, 0],
+        extrapolate: 'clamp',
+      });
+      const glowScale = scrollX.interpolate({
+        inputRange,
+        outputRange: [1, 1.02, 1],
+        extrapolate: 'clamp',
+      });
+      const ringOpacity = scrollX.interpolate({
+        inputRange,
+        outputRange: [0, 1, 0],
+        extrapolate: 'clamp',
+      });
+      const ringScale = scrollX.interpolate({
+        inputRange,
+        outputRange: [0.98, 1.02, 0.98],
+        extrapolate: 'clamp',
+      });
 
       return (
-        <View style={styles.publicacionContainer}>
-          <View style={styles.publicacionCard}>
-            {/* Header */}
-            <View style={styles.publicacionHeader}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarLetter}>
-                  {(item?.autor?.[0] || 'N').toUpperCase()}
-                </Text>
-              </View>
+        <Animated.View style={{ transform: [{ scale }], opacity, marginHorizontal: SPACING / 2 }}>
+          <Pressable
+            onPress={() =>
+              navigation.navigate('CategoriaFeed', {
+                categoriaId: item.id,
+                nombre: item.nombre,
+              })
+            }
+            style={[styles.catsCard, { width: CARD_WIDTH, overflow: 'hidden', borderRadius: CARD_RADIUS }]}
+          >
+            <ImageBackground
+              source={item.img}
+              style={[styles.catsCardImage, { height: CARD_HEIGHT }]} // asegura 160px
+              imageStyle={styles.catsCardImageStyle}
+            >
+              <View style={styles.catsOverlay} />
+              <Text style={styles.catsCardTitle}>{item.nombre}</Text>
+            </ImageBackground>
 
-              <View style={styles.headerText}>
-                <Text style={styles.nombreAutor} numberOfLines={1}>
-                  {item.autor || 'Autor'}
-                </Text>
-                <Text style={styles.fechaTexto}>
-                  {item.created_at ? new Date(item.created_at).toLocaleDateString() : 'Ahora'}
-                </Text>
-              </View>
+            <Animated.View
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                top: 0, left: 0, right: 0, bottom: 0,
+                borderRadius: CARD_RADIUS,
+                borderColor: 'rgba(34, 211, 238, 0.45)',
+                borderWidth: 10,
+                opacity: glowOpacity,
+                transform: [{ scale: glowScale }],
+                zIndex: 10,
+              }}
+            />
 
-              {/* 3 puntos */}
-              <TouchableOpacity
-                onPress={() => {
-                  setMenuPubId(menuPubId === item.id ? null : item.id);
-                  setReportTarget(item);
-                }}
-                style={localStyles.kebabBtn}
-                activeOpacity={0.8}
-              >
-                <Text style={localStyles.kebabText}>⋮</Text>
-              </TouchableOpacity>
-            </View>
-
-            {menuPubId === item.id && (
-              <View style={localStyles.kebabMenu}>
-                <TouchableOpacity
-                  style={localStyles.kebabItem}
-                  onPress={() => {
-                    setMenuPubId(null);
-                    setReportReason('spam');
-                    setReportNote('');
-                    setReportModalOpen(true);
-                  }}
-                >
-                  <Text style={localStyles.kebabItemText}>Reportar publicación</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={localStyles.kebabItem}
-                  onPress={() => setMenuPubId(null)}
-                >
-                  <Text style={localStyles.kebabItemText}>Cancelar</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {!!item.titulo && (
-              <Text style={styles.publicacionTitulo} numberOfLines={2}>{item.titulo}</Text>
-            )}
-            {!!item.descripcion && (
-              <Text style={styles.publicacionTexto} numberOfLines={3}>{item.descripcion}</Text>
-            )}
-            {!!item.portadaUri && (
-              <Image source={{ uri: item.portadaUri }} style={styles.publicacionImagen} />
-            )}
-
-            <View style={styles.tagsRow}>
-              {!!item.categoria && <Text style={styles.tagChip}>#{item.categoria}</Text>}
-              {!!item.area && <Text style={styles.tagChip}>#{item.area}</Text>}
-            </View>
-
-            {colaboradores.length > 0 && (
-              <View style={styles.collabBlock}>
-                <Text style={styles.collabLabel}>Colaboradores</Text>
-                <View style={styles.collabRow}>
-                  {colaboradores.slice(0, 5).map((name, idx2) => (
-                    <View key={`${name}-${idx2}`} style={styles.collabPill}>
-                      <Text style={styles.collabPillText}>{name}</Text>
-                    </View>
-                  ))}
-                  {colaboradores.length > 5 && (
-                    <View style={styles.collabPillMuted}>
-                      <Text style={styles.collabPillMutedText}>+{colaboradores.length - 5}</Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-            )}
-
-            <View style={styles.publicacionFooter}>
-              <View style={styles.voteRow}>
-                <TouchableOpacity
-                  style={[styles.voteBtn, myVote === 1 && styles.voteBtnActive]}
-                  activeOpacity={0.85}
-                  onPress={() => applyVote(item.id, 'like')}
-                >
-                  <Image source={myVote === 1 ? likeIconActive : likeIcon} style={styles.voteImage} />
-                  <Text style={styles.voteCount}>{likes}</Text>
-                </TouchableOpacity>
-
-                <View style={{ width: 12 }} />
-
-                <TouchableOpacity
-                  style={[styles.voteBtn, myVote === -1 && styles.voteBtnActiveDown]}
-                  activeOpacity={0.85}
-                  onPress={() => applyVote(item.id, 'dislike')}
-                >
-                  <Image source={myVote === -1 ? dislikeIconActive : dislikeIcon} style={styles.voteImage} />
-                  <Text style={styles.voteCount}>{dislikes}</Text>
-                </TouchableOpacity>
-              </View>
-
-              <TouchableOpacity
-                style={styles.verMasBtn}
-                activeOpacity={0.85}
-                onPress={() => irADetalle(item)}
-              >
-                <Text style={styles.verMasText}>Ver más</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
+            <Animated.View
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                top: 0, left: 0, right: 0, bottom: 0,
+                borderRadius: CARD_RADIUS,
+                borderColor: '#22D3EE',
+                borderWidth: 3,
+                opacity: ringOpacity,
+                transform: [{ scale: ringScale }],
+                zIndex: 11,
+              }}
+            />
+          </Pressable>
+        </Animated.View>
       );
     },
-    [applyVote, irADetalle, votesMap, menuPubId]
+    [navigation, scrollX]
   );
 
   return (
@@ -565,14 +677,83 @@ export default function HomeScreen({ navigation }) {
                 style={styles.icon}
               />
               {rolUsuario === ROLE_ADMIN && (
-                <Text style={localStyles.headerIconLabel}>Administrador</Text>
+                <Text style={styles.headerIconLabel}>Administrador</Text>
               )}
             </TouchableOpacity>
           )}
         </View>
       </ImageBackground>
 
-      <View style={styles.searchContainer}>
+      {/* ==== ÍCONO-IMAGEN ENTRE HEADER Y BUSCADOR ==== */}
+      <View style={[styles.midIconWrap, { marginBottom: catsOpen ? 2 : -8 }]}>
+        <TouchableOpacity
+          style={styles.midIconBtn}
+          activeOpacity={0.9}
+          onPress={toggleCats}
+        >
+          <View style={styles.midIconImageBox}>
+            <Image
+              source={require('../assets/IconoCategorias.png')}
+              style={styles.midIconImage}
+              resizeMode="contain"
+            />
+          </View>
+          <Text style={styles.midIconText}>Categorías</Text>
+          <Ionicons
+            name={catsOpen ? 'chevron-up' : 'chevron-down'}
+            size={18}
+            color="#0f172a"
+            style={{ marginLeft: 6 }}
+          />
+        </TouchableOpacity>
+      </View>
+
+      {/* ==== CARRUSEL DESPLEGABLE (entre header y buscador) ==== */}
+      <Animated.View
+        style={[
+          styles.catsWrap,
+          {
+            height: catsHeight,               // 162 abierto / 0 cerrado
+            opacity: catsOpacity,
+            paddingTop: catsOpen ? CATS_TOP_OPEN : 8, // 2 abierto, 8 cerrado
+            paddingBottom: 0,
+            marginBottom: 0,
+          },
+        ]}
+        pointerEvents={catsOpen ? 'auto' : 'none'}
+      >
+        <Animated.FlatList
+          ref={catsListRef}
+          data={LOOP_DATA}
+          keyExtractor={(it) => it._key}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          bounces={false}
+          snapToInterval={ITEM_SIZE}
+          snapToAlignment="center"
+          decelerationRate="fast"
+          disableIntervalMomentum
+          contentContainerStyle={{ paddingHorizontal: SIDE_PADDING, paddingTop: 0, paddingBottom: 0 }}
+          initialScrollIndex={START_INDEX}
+          getItemLayout={(_, index) => ({
+            length: ITEM_SIZE,
+            offset: ITEM_SIZE * index,
+            index,
+          })}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={9}
+          removeClippedSubviews
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          onScrollBeginDrag={onScrollBeginDrag}
+          onMomentumScrollEnd={onMomentumScrollEnd}
+          renderItem={renderItem}
+        />
+      </Animated.View>
+
+      {/* ==== BUSCADOR (con gap dinámico) ==== */}
+      <View style={[styles.searchContainer, { marginTop: gapBelowIcon }]}>
         <TouchableOpacity style={styles.searchBar} activeOpacity={0.9}>
           <Image source={require('../assets/IconoBusqueda.png')} style={styles.searchIcon} />
           <TextInput placeholder="Buscar" placeholderTextColor="#999" style={styles.searchInput} />
@@ -587,7 +768,145 @@ export default function HomeScreen({ navigation }) {
           data={publicaciones}
           keyExtractor={(item, i) => String(item?.id ?? i)}
           contentContainerStyle={styles.listContent}
-          renderItem={renderItem}
+          renderItem={({ item }) => {
+            const colaboradores = (item?.equipo_colaborador || '')
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean);
+
+            const v = votesMap[item.id] || {
+              likes: item.likes_count ?? item.likes ?? 0,
+              dislikes: item.dislikes_count ?? item.dislikes ?? 0,
+              myVote: 0,
+            };
+            const { likes, dislikes, myVote } = v;
+
+            return (
+              <View style={styles.publicacionContainer}>
+                <View style={styles.publicacionCard}>
+                  {/* Header */}
+                  <View style={styles.publicacionHeader}>
+                    <View style={styles.avatar}>
+                      <Text style={styles.avatarLetter}>
+                        {(item?.autor?.[0] || 'N').toUpperCase()}
+                      </Text>
+                    </View>
+
+                    <View style={styles.headerText}>
+                      <TouchableOpacity activeOpacity={0.85} onPress={() => openPerfilAutor(item)}>
+                        <Text style={styles.nombreAutor} numberOfLines={1}>
+                          {item.autor || 'Autor'}
+                        </Text>
+                      </TouchableOpacity>
+                      <Text style={styles.fechaTexto}>
+                        {item.created_at ? new Date(item.created_at).toLocaleDateString() : 'Ahora'}
+                      </Text>
+                    </View>
+
+                    {/* 3 puntos */}
+                    <TouchableOpacity
+                      onPress={() => {
+                        setMenuPubId(menuPubId === item.id ? null : item.id);
+                        setReportTarget(item);
+                      }}
+                      style={styles.kebabBtn}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.kebabText}>⋮</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {menuPubId === item.id && (
+                    <View style={styles.kebabMenu}>
+                      <TouchableOpacity
+                        style={styles.kebabItem}
+                        onPress={() => {
+                          setMenuPubId(null);
+                          setReportReason('spam');
+                          setReportNote('');
+                          setReportModalOpen(true);
+                        }}
+                      >
+                        <Text style={styles.kebabItemText}>Reportar publicación</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.kebabItem}
+                        onPress={() => setMenuPubId(null)}
+                      >
+                        <Text style={styles.kebabItemText}>Cancelar</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {!!item.titulo && (
+                    <Text style={styles.publicacionTitulo} numberOfLines={2}>{item.titulo}</Text>
+                  )}
+                  {!!item.descripcion && (
+                    <Text style={styles.publicacionTexto} numberOfLines={3}>{item.descripcion}</Text>
+                  )}
+                  {!!item.portadaUri && (
+                    <Image source={{ uri: item.portadaUri }} style={styles.publicacionImagen} />
+                  )}
+
+                  <View style={styles.tagsRow}>
+                    {!!item.categoria && <Text style={styles.tagChip}>#{item.categoria}</Text>}
+                    {!!item.area && <Text style={styles.tagChip}>#{item.area}</Text>}
+                  </View>
+
+                  {colaboradores.length > 0 && (
+                    <View style={styles.collabBlock}>
+                      <Text style={styles.collabLabel}>Colaboradores</Text>
+                      <View style={styles.collabRow}>
+                        {colaboradores.slice(0, 5).map((name, idx2) => (
+                          <View key={`${name}-${idx2}`} style={styles.collabPill}>
+                            <Text style={styles.collabPillText}>{name}</Text>
+                          </View>
+                        ))}
+                        {colaboradores.length > 5 && (
+                          <View style={styles.collabPillMuted}>
+                            <Text style={styles.collabPillMutedText}>+{colaboradores.length - 5}</Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  )}
+
+                  <View style={styles.publicacionFooter}>
+                    <View style={styles.voteRow}>
+                      <TouchableOpacity
+                        style={[styles.voteBtn, myVote === 1 && styles.voteBtnActive]}
+                        activeOpacity={0.85}
+                        onPress={() => applyVote(item.id, 'like')}
+                      >
+                        <Image source={myVote === 1 ? likeIconActive : likeIcon} style={styles.voteImage} />
+                        <Text style={styles.voteCount}>{likes}</Text>
+                      </TouchableOpacity>
+
+                      <View style={{ width: 12 }} />
+
+                      <TouchableOpacity
+                        style={[styles.voteBtn, myVote === -1 && styles.voteBtnActiveDown]}
+                        activeOpacity={0.85}
+                        onPress={() => applyVote(item.id, 'dislike')}
+                      >
+                        <Image source={myVote === -1 ? dislikeIconActive : dislikeIcon} style={styles.voteImage} />
+                        <Text style={styles.voteCount}>{dislikes}</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <TouchableOpacity
+                      style={styles.verMasBtn}
+                      activeOpacity={0.85}
+                      onPress={() => irADetalle(item)}
+                    >
+                      <Text style={styles.verMasText}>Ver más</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            );
+          }}
           extraData={{ votesMap, menuPubId }}
           ListEmptyComponent={
             <View style={{ alignItems: 'center', marginTop: 24 }}>
@@ -615,8 +934,12 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
+          onPressIn={() => Animated.spring(scaleAnim, { toValue: 1.2, useNativeDriver: true }).start()}
+          onPressOut={() =>
+            Animated
+              .spring(scaleAnim, { toValue: 1, friction: 3, tension: 40, useNativeDriver: true })
+              .start(() => navigation.navigate('CrearPublicacion'))
+          }
           style={{ transform: [{ scale: scaleAnim }] }}
           activeOpacity={0.9}
         >
@@ -634,10 +957,10 @@ export default function HomeScreen({ navigation }) {
 
       {/* Modal Reporte */}
       {reportModalOpen && (
-        <View style={localStyles.modalBackdrop}>
-          <View style={localStyles.modalSheet}>
-            <Text style={localStyles.modalTitle}>Reportar publicación</Text>
-            <Text style={localStyles.modalSub}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalSheet}>
+            <Text style={styles.modalTitle}>Reportar publicación</Text>
+            <Text style={styles.modalSub}>
               {reportTarget?.titulo ? `“${reportTarget.titulo}”` : 'Publicación'}
             </Text>
 
@@ -645,14 +968,14 @@ export default function HomeScreen({ navigation }) {
               {REPORT_REASONS.map((r) => (
                 <TouchableOpacity
                   key={r.key}
-                  style={localStyles.radioRow}
+                  style={styles.radioRow}
                   onPress={() => setReportReason(r.key)}
                   activeOpacity={0.8}
                 >
-                  <View style={[localStyles.radioOuter, reportReason === r.key && localStyles.radioOuterActive]}>
-                    {reportReason === r.key && <View style={localStyles.radioInner} />}
+                  <View style={[styles.radioOuter, reportReason === r.key && styles.radioOuterActive]}>
+                    {reportReason === r.key && <View style={styles.radioInner} />}
                   </View>
-                  <Text style={localStyles.radioLabel}>{r.label}</Text>
+                  <Text style={styles.radioLabel}>{r.label}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -662,26 +985,26 @@ export default function HomeScreen({ navigation }) {
               onChangeText={setReportNote}
               placeholder="Comentario (opcional)…"
               placeholderTextColor="#94A3B8"
-              style={localStyles.modalInput}
+              style={styles.modalInput}
               multiline
             />
 
-            <View style={localStyles.modalActions}>
+            <View style={styles.modalActions}>
               <TouchableOpacity
-                style={localStyles.modalBtnGhost}
+                style={styles.modalBtnGhost}
                 onPress={() => { setReportModalOpen(false); setMenuPubId(null); }}
               >
-                <Text style={localStyles.modalBtnGhostText}>Cancelar</Text>
+                <Text style={styles.modalBtnGhostText}>Cancelar</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={localStyles.modalBtnPrimary}
+                style={styles.modalBtnPrimary}
                 onPress={() => {
                   if (!reportTarget?.id) { setReportModalOpen(false); return; }
                   reportarPublicacion(reportTarget.id, reportReason, reportNote);
                 }}
               >
-                <Text style={localStyles.modalBtnPrimaryText}>Enviar</Text>
+                <Text style={styles.modalBtnPrimaryText}>Enviar</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -690,65 +1013,3 @@ export default function HomeScreen({ navigation }) {
     </View>
   );
 }
-
-const localStyles = StyleSheet.create({
-  headerIconLabel: { color: '#fff', fontSize: 10, marginTop: 4 },
-  kebabBtn: { marginLeft: 'auto', padding: 6 },
-  kebabText: { fontSize: 22, color: '#64748B', lineHeight: 18 },
-  kebabMenu: {
-    position: 'absolute',
-    top: -10,
-    right: 8,
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 3,
-    zIndex: 20,
-  },
-  kebabItem: { paddingHorizontal: 14, paddingVertical: 10 },
-  kebabItemText: { color: '#0f172a', fontSize: 14 },
-  modalBackdrop: {
-    position: 'absolute',
-    left: 0, right: 0, top: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 30,
-  },
-  modalSheet: {
-    width: '88%',
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 16,
-  },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a' },
-  modalSub: { marginTop: 4, fontSize: 13, color: '#64748B' },
-  modalInput: {
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 10,
-    padding: 10,
-    minHeight: 80,
-    textAlignVertical: 'top',
-    color: '#0f172a',
-  },
-  modalActions: { marginTop: 12, flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
-  modalBtnGhost: { paddingHorizontal: 14, paddingVertical: 10 },
-  modalBtnGhostText: { color: '#334155', fontWeight: '600' },
-  modalBtnPrimary: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, backgroundColor: '#0e0e2c' },
-  modalBtnPrimaryText: { color: '#fff', fontWeight: '700' },
-  radioRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
-  radioOuter: {
-    width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#CBD5E1',
-    alignItems: 'center', justifyContent: 'center', marginRight: 10,
-  },
-  radioOuterActive: { borderColor: '#0e0e2c' },
-  radioInner: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#0e0e2c' },
-  radioLabel: { color: '#0f172a', fontSize: 14 },
-});
