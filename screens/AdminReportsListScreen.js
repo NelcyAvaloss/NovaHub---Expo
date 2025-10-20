@@ -80,7 +80,7 @@ export default function AdminReportsListScreen({ navigation }) {
     abierto:      reports.filter(r => r.state === 'abierto').length,
     pendiente:    reports.filter(r => r.state === 'pendiente').length,
     resuelto:     reports.filter(r => r.state === 'resuelto').length,
-    sin_resolver: reports.filter(r => r.state === 'sin resolver').length,
+    no_resuelto: reports.filter(r => r.state === 'no resuelto').length,
   }), [reports]);
 
   // Lista filtrada
@@ -111,7 +111,7 @@ export default function AdminReportsListScreen({ navigation }) {
     if (st === 'resuelto')       return { box: s.badgeGreen,  text: s.badgeTextDark, icon: 'checkmark-circle' };
     if (st === 'pendiente')      return { box: s.badgeYellow, text: s.badgeTextWarn, icon: 'time' };
     if (st === 'abierto')        return { box: s.badgeBlue,   text: s.badgeTextInfo, icon: 'alert-circle' };
-    if (st === 'sin_resolver')   return { box: s.badgeBlue,   text: s.badgeTextInfo, icon: 'help-circle' };
+    if (st === 'no resuelto')   return { box: s.badgeBlue,   text: s.badgeTextInfo, icon: 'help-circle' };
     return { box: s.badgeBlue, text: s.badgeTextInfo, icon: 'information-circle' };
   };
 
@@ -126,25 +126,26 @@ export default function AdminReportsListScreen({ navigation }) {
 
   // ===== Acciones =====
   const resolver = async (id) => {
-    if(await actualizarEstadoReporte(id, 'resolver')){
-      setReports(prev => prev.map(r => {
-        if (r.id !== id) return r;
-        setLastChangedId(id);
-        Alert.alert('Resolver', `Reporte ${id} marcado como resuelto.`);
-        return { ...r, state: 'resuelto' };
-      }));
-    };
+    const ok = await actualizarEstadoReporte(id, 'resolver');
+    console.log('resolver -> actualizarEstadoReporte', id, ok);
+    if (!ok) return;
+
+    setReports(prev => prev.map(r => r.id === id ? { ...r, state: 'resuelto' } : r));
+    setLastChangedId(id);
+    Alert.alert('Resolver', `Reporte ${id} marcado como resuelto.`);
   };
 
   const marcarSinResolver = async (id) => {
-    if(await actualizarEstadoReporte(id, 'marcar sin resolver')){
-      setReports(prev => prev.map(r => {
-        if (r.id !== id) return r;
-        setLastChangedId(id);
-        Alert.alert('Sin resolver', `Reporte ${id} marcado como "sin resolver".`);
-        return { ...r, state: 'no resuelto' };
-      }));
-    };
+    const nuevo = await actualizarEstadoReporte(id, 'marcar sin resolver');
+    if (!nuevo) return;
+    console.log('marcarSinResolver -> actualizarEstadoReporte', id, nuevo);
+
+    console.log('Reporte actual:', reports.find(r => r.id === id));
+
+    setReports(prev => prev.map(r =>  r.id === id ? { ...r, state: 'no resuelto' } : r ));  
+    console.log('Reporte actualizado:', reports.find(r => r.id === id));
+    setLastChangedId(id);
+    Alert.alert('Sin resolver', `Reporte ${id} marcado como "sin resolver".`);
   };
 
   const openReport = (id) => {
@@ -343,7 +344,7 @@ export default function AdminReportsListScreen({ navigation }) {
               t.key === 'abierto'       ? counts.abierto :
               t.key === 'pendiente'     ? counts.pendiente :
               t.key === 'resuelto'      ? counts.resuelto :
-              counts.sin_resolver;
+              counts.no_resuelto;
             return (
               <Pressable
                 key={t.key}
@@ -366,7 +367,7 @@ export default function AdminReportsListScreen({ navigation }) {
         </View>
         <View style={s.metricsBottomRow}>
           <View style={s.metricCard}><Text style={s.metricLabel}>Resueltos</Text><Text style={s.metricValue}>{counts.resuelto}</Text></View>
-          <View style={s.metricCard}><Text style={s.metricLabel}>Sin resolver</Text><Text style={s.metricValue}>{counts.sin_resolver}</Text></View>
+          <View style={s.metricCard}><Text style={s.metricLabel}>Sin resolver</Text><Text style={s.metricValue}>{counts.no_resuelto}</Text></View>
         </View>
 
         {/* Lista */}
