@@ -40,13 +40,16 @@ import AdminReportPublicDetallScreen from './screens/AdminReportPublicDetallScre
 /* Extras */
 import AdminModeradoresScreen from './screens/AdminModeradoresScreen';
 import AdminHilosSoporteScreen from './screens/AdminHilosSoporteScreen';
+import CarruselCategoriasScreen from './screens/CarruselCategoriasScreen';
+import CategoriaFeedScreen from './screens/CategoriaFeedScreen';
+
 
 const RootStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 /** RUTA INICIAL **/
 // Opción fija:
-const INITIAL_ROUTE = 'Login';
+const INITIAL_ROUTE = 'Bienvenido';
 
 // Opción condicional MODO DESARROLLO:
 // const INITIAL_ROUTE = __DEV__ ? 'PerfilUsuario' : 'Bienvenido';
@@ -158,6 +161,8 @@ export default function App() {
             <RootStack.Screen name="DetallePublicacion" component={DetallePublicacionScreen} />
             <RootStack.Screen name="Ranking" component={RankingScreen} />
             <RootStack.Screen name="PerfilUsuario" component={PerfilUsuarioScreen} />
+            <RootStack.Screen name="CarruselCategorias" component={CarruselCategoriasScreen} />
+            <RootStack.Screen name="CategoriaFeed" component={CategoriaFeedScreen} />
 
             {/* --------- Panel de Administración (tabs) --------- */}
             <RootStack.Screen name="AdminPanel" component={AdminTabs} />
