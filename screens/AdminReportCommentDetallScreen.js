@@ -10,6 +10,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import s from './AdminReportCommentDetallScreen.styles';
+import { obtenerDetalleMensaje } from '../services/mensajesService';
+import { actualizarEstadoReporte } from '../services/adminReportPubliService';
+import { actualizarEstadoUsuario } from '../services/usuariosService';
 
 const initialFrom = (name = '') => (name.trim()[0] || '?').toUpperCase();
 
@@ -39,24 +42,61 @@ export default function AdminCommentReportDetallScreen({ route, navigation }) {
   };
 
   const [report, setReport] = useState(
-    incoming?.targetType === 'comentario' ? incoming : fallback
+    //Se acepta si es comentario, respuesta o sub respuesta
+    (incoming?.targetType === 'comentario' || incoming?.targetType === 'respuesta' || incoming?.targetType === 'sub respuesta)')
+    ? incoming : fallback
   );
+
+  React.useEffect(() => {
+    let mounted = true;
+    const fetchCommentDetail = async () => {
+      try {
+        const { ok, data } = await obtenerDetalleMensaje(report.target.id, 'Comentario');
+        if (mounted && ok && data) {
+          setReport(prev => ({
+            ...prev,
+            comment: {
+              id: data.id,
+              authorId: data.id_autor,
+              authorName: data.nombreAutor || 'Desconocido',
+              createdAt: data.created_at,
+              text: data.contenido,
+              postId: data.id_publicacion || null,
+              postTitle: data.tituloPublicacion || '',
+            },
+          }));
+        }
+      } catch (err) {
+        console.warn('Error fetching comment detail', err);
+      }
+    };
+
+    fetchCommentDetail();
+    return () => {
+      mounted = false;
+    };
+  }, [incoming?.targetId]);
 
   const badge = useMemo(() => {
     if (report.state === 'resuelto')
       return { box: s.badgeGreen, text: s.badgeTextDark, icon: 'checkmark-circle' };
     if (report.state === 'pendiente')
       return { box: s.badgeYellow, text: s.badgeTextWarn, icon: 'time' };
-    if (report.state === 'sin_resolver')
+    if (report.state === 'no resuelto')
       return { box: s.badgeBlue, text: s.badgeTextInfo, icon: 'help-circle' };
     return { box: s.badgeBlue, text: s.badgeTextInfo, icon: 'alert-circle' };
   }, [report.state]);
 
-  const toggleResolver = () => {
+  const toggleResolver = async () => {
+    const success = await actualizarEstadoReporte(report.id, report.state === 'resuelto' ? 'resolver' : 'marcar sin resolver');
+    if (!success) {
+      Alert.alert('Error', 'No se pudo actualizar el estado del reporte. Intenta nuevamente.');
+      return;
+    }
     setReport(prev => {
       const next =
         prev.state === 'resuelto'
-          ? { ...prev, state: 'sin_resolver' }
+          ? { ...prev, state: 'no resuelto' }
           : { ...prev, state: 'resuelto' };
       Alert.alert(
         next.state === 'resuelto' ? 'Resuelto' : 'Sin resolver',
@@ -85,13 +125,21 @@ export default function AdminCommentReportDetallScreen({ route, navigation }) {
     );
   };
 
-  const bloquearUsuario = () => {
+  const bloquearUsuario = async () => {
+
     Alert.alert(
       'Bloquear usuario',
       `¿Bloquear a ${report.comment?.authorName} (${report.comment?.authorUsername})?`,
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Bloquear', style: 'destructive', onPress: () => Alert.alert('Bloqueado', 'Usuario bloqueado.') },
+        { text: 'Bloquear', style: 'destructive', onPress: async () => {
+            const success = await actualizarEstadoUsuario(report.comment?.authorId, 'bloqueado');
+            if (success) {
+              Alert.alert('Bloqueado', 'Usuario bloqueado.');
+            } else {
+              Alert.alert('Error', 'No se pudo bloquear al usuario. Intenta nuevamente.');
+            }
+          }},
       ]
     );
   };
@@ -205,7 +253,9 @@ export default function AdminCommentReportDetallScreen({ route, navigation }) {
             <Ionicons name="trash" size={16} color="#3730A3" />
             <Text style={s.btnGhostText}>Eliminar comentario</Text>
           </Pressable>
-          <Pressable style={[s.btn, s.btnPrimary]} onPress={toggleResolver}>
+          <Pressable style={[s.btn, s.btnPrimary]} onPress={async () => {
+            await toggleResolver();
+          }}>
             <Ionicons name={report.state === 'resuelto' ? 'help-circle' : 'checkmark-circle'} size={16} color="#FFFFFF" />
             <Text style={s.btnPrimaryText}>
               {report.state === 'resuelto' ? 'Marcar sin resolver' : 'Marcar como resuelto'}

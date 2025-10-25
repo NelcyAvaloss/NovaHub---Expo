@@ -114,3 +114,42 @@ async function getCurrentUserId() {
   if (error || !data.user) return null;
   return data.user.id;
 }
+
+async function obtenerObjetivoReporte(tipoObjetivo, objetivoId){
+    const tabla_tipo={
+        'publicacion':'Publicaciones',
+        'comentario':'Comentarios',
+        'respuesta':'Respuestas',
+        'sub respuesta':'Sub_Respuestas',
+        'usuario':'usuarios'
+    };
+    const { data, error } = await supabase
+    .from(tabla_tipo[tipoObjetivo])
+    .select('*')
+    .eq('id', objetivoId)
+    .single();
+    if (error) {
+        console.error('Error al obtener objetivo del reporte:', error);
+        return null;
+    }
+    return data;
+}
+
+export async function obtenerDetalleReporte(reporteId){
+    const { data, error } = await supabase
+    .from('Reportes')
+    .select('*')
+    .eq('id', reporteId)
+    .single();
+    if (error) {
+        console.error('Error al obtener detalle del reporte:', error);
+        return null;
+    }
+
+    const objetivo = await obtenerObjetivoReporte(data.tipo_objetivo, data.id_objetivo);
+    const reporteMapeado = await mapearReporte(data);
+    return {
+        ...reporteMapeado,
+        target: objetivo
+    };
+}

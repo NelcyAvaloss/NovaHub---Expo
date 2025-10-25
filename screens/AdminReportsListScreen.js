@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import s from './AdminReportsListScreen.styles';
-import { obtenerReportes, actualizarEstadoReporte } from '../services/adminReportPubliService';
+import { obtenerReportes, actualizarEstadoReporte, obtenerDetalleReporte } from '../services/adminReportPubliService';
 
 const TABS = [
   { key: 'todos',         label: 'Todos' },
@@ -149,9 +149,9 @@ export default function AdminReportsListScreen({ navigation }) {
     Alert.alert('Sin resolver', `Reporte ${id} marcado como "sin resolver".`);
   };
 
-  const openReport = (id) => {
+  const openReport = async (id) => {
     // 1) Obtén el reporte antes de mutar estado
-    const rep = reports.find(x => x.id === id);
+    const rep = await obtenerDetalleReporte(id);
     if (!rep) return;
 
     // 2) Feedback visual: si estaba pendiente, pásalo a abierto
@@ -164,6 +164,8 @@ export default function AdminReportsListScreen({ navigation }) {
       publicacion: 'AdminReportPublicDetall',
       usuario:     'AdminReportUserDetall',
       comentario:  'AdminReportCommentDetall',
+      respuesta:   'AdminReportCommentDetall',
+      'sub respuesta': 'AdminReportCommentDetall',
     };
 
     const routeName = routeByType[rep.targetType];

@@ -119,4 +119,17 @@ export async function eliminarUsuario(id) {
   return { ok: true };
 }
 
-//Pruebita, borrar luego
+export async function obtenerNombreUsuario(usuarioId){
+    const { data, error } = await supabase
+    .from('usuarios')
+    .select('nombre')
+    .eq('id', usuarioId)
+    .single();
+
+    if (error) {
+        console.error("Error al obtener nombre de usuario:", error);
+        return { ok: false, error };
+    }
+
+    return { ok: true, data: data?.nombre ?? "Sin nombre" };
+}

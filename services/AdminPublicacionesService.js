@@ -1,9 +1,23 @@
 // services/AdminPublicacionesService.js
 import { supabase } from "../screens/supabase";
-
+import { obtenerNombreUsuario } from "./usuariosService";
 /* =========================
    Acciones de moderación
    ========================= */
+
+export async function obtenerNombrePublicacion(publicacionId){
+    const { data, error } = await supabase
+    .from('Publicaciones')
+    .select('titulo')
+    .eq('id', publicacionId)
+    .single();
+    if (error) {
+        console.error("Error al obtener nombre de publicación:", error);
+        return { ok: false, error };
+    }
+    return { ok: true, data: data?.titulo ?? "Sin título" };
+}
+
 
 /** Aprobar: registra decisión y setea estado_de_revision = 'publicada' */
 export async function aprobarPublicacion(id) {
@@ -96,13 +110,8 @@ export async function obtenerPublicaciones() {
 
   const publicacionesConAutor = await Promise.all(
     (data ?? []).map(async (pub) => {
-      const { data: autorData, error: autorError } = await supabase
-        .from("usuarios")
-        .select("nombre")
-        .eq("id", pub.id_autor) // 🔥 CAMBIO: usa id_autor consistente
-        .single();
-
-      const authorName = autorError ? "Desconocido" : (autorData?.nombre ?? "—");
+      const { ok, data: autorData } = await obtenerNombreUsuario(pub.id_autor);
+      const authorName = ok ? autorData : "Desconocido";
 
       // 🔥 CAMBIO: estado visual directamente del enum
       const visualState = pub.estado_de_revision ?? "publicada";
