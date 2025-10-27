@@ -15,6 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import s from './AdminReportsListScreen.styles';
 import { obtenerReportes, actualizarEstadoReporte, obtenerDetalleReporte } from '../services/adminReportPubliService';
+import { supabase } from './supabase';
 
 const TABS = [
   { key: 'todos',         label: 'Todos' },
@@ -121,6 +122,18 @@ export default function AdminReportsListScreen({ navigation }) {
       setReports(reportes);
     };
     fetchData();
+
+    const subscription = supabase
+      .channel('public:Reportes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'Reportes' }, payload => {
+        console.log('Cambio en Reportes:', payload);
+        fetchData();
+      }).subscribe();
+
+    return () => {
+      supabase.removeSubscription(subscription);
+    };
+
   }, []);
 
 
