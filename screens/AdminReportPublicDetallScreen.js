@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import s from './AdminReportPublicDetallScreen.styles';
 import { actualizarEstadoReporte } from '../services/adminReportPubliService';
 import { obtenerDetallePublicacion } from '../services/AdminPublicacionesService';
+import { actualizarEstadoReporte } from '../services/adminReportPubliService';
 
 const likeIcon = require('../assets/IconoLike.png');
 const dislikeIcon = require('../assets/IconoDislike.png');
@@ -126,20 +127,21 @@ export default function AdminReportDetallScreen({ route, navigation }) {
   };
 
   // ---- Toggle resolver <-> sin_resolver; si no es ninguno, pasa a resuelto
-  const onToggleResolve = () => {
-    setReportState((prev) => {
-      if (prev === 'resuelto') {
-        Alert.alert('Sin resolver', `El reporte #${baseReport.id} cambió a "sin resolver".`);
-        return 'sin_resolver';
+  const onToggleResolve = async () => {
+    if (reportState === 'resuelto') {
+      if (!(await actualizarEstadoReporte(baseReport.id, 'marcar sin resolver'))) {
+        Alert.alert('Error', 'No se pudo actualizar el estado del reporte.');
       }
-      if (prev === 'sin_resolver' || prev === 'abierto' || prev === 'pendiente') {
-        Alert.alert('Resuelto', `El reporte #${baseReport.id} fue marcado como resuelto.`);
-        return 'resuelto';
+    } else {
+      if (!(await actualizarEstadoReporte(baseReport.id, 'resolver'))) {
+        Alert.alert('Error', 'No se pudo actualizar el estado del reporte.');
       }
-      // fallback
-      return 'resuelto';
-    });
-  };
+    }
+    // Actualizar estado localmente
+    setReportState((prev) =>
+      prev === 'resuelto' ? 'sin_resolver' : 'resuelto'
+    );
+  }
 
   // Cerrar: volver a la lista
   const onClose = () => {
