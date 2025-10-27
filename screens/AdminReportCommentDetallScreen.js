@@ -57,7 +57,7 @@ export default function AdminCommentReportDetallScreen({ route, navigation }) {
             ...prev,
             comment: {
               id: data.id,
-              authorId: data.id_autor,
+              authorId: data.id_usuario,
               authorName: data.nombreAutor || 'Desconocido',
               createdAt: data.created_at,
               text: data.contenido,
@@ -126,7 +126,7 @@ export default function AdminCommentReportDetallScreen({ route, navigation }) {
   };
 
   const bloquearUsuario = async () => {
-
+    console.log(report)
     Alert.alert(
       'Bloquear usuario',
       `¿Bloquear a ${report.comment?.authorName} (${report.comment?.authorUsername})?`,

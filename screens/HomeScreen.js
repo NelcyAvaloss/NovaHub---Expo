@@ -197,11 +197,14 @@ export default function HomeScreen({ navigation }) {
   };
 
   const REPORT_REASONS = [
-    { key: 'spam', label: 'Spam' },
-    { key: 'agresion', label: 'Agresión' },
-    { key: 'nsfw', label: 'NSFW (contenido sensible)' },
-    { key: 'contenido_enganoso', label: 'Contenido engañoso' },
-    { key: 'sin_clasificar', label: 'Reporte sin clasificar' },
+    { key: 'Spam', label: 'Spam' },
+    { key: 'Acoso/Agresion', label: 'Agresión' },
+    { key: 'NSFW', label: 'NSFW (contenido sensible)' },
+    { key: 'Contenido engañoso', label: 'Contenido engañoso' },
+    { key: 'Lenguaje ofensivo', label: 'Lenguaje ofensivo' },
+    { key: 'Seguridad', label: 'Problema de seguridad' },
+    { key: 'Privacidad', label: 'Problema de privacidad' },
+    { key: 'Sin clasificar', label: 'Reporte sin clasificar' },
   ];
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportTarget, setReportTarget] = useState(null);
@@ -527,13 +530,12 @@ export default function HomeScreen({ navigation }) {
       const uid = s?.user?.id || null;
 
       const { error } = await supabase
-        .from('Decisiones_en_publicaciones')
+        .from('Reportes')
         .insert([{
-          id_publicacion: pubId,
-          accion: 'reporte',
-          motivo,
-          nota: nota || null,
-          id_usuario: uid,
+          id_objetivo: pubId,
+          tipo_objetivo: 'publicacion',
+          razón: motivo,
+          detalles: nota || null,
         }]);
 
       if (error) throw error;
@@ -544,6 +546,7 @@ export default function HomeScreen({ navigation }) {
       setMenuPubId(null);
       Alert.alert('Gracias', 'Tu reporte fue enviado.');
     } catch (e) {
+      console.error('Error reportando publicación:', e);
       Alert.alert('Error', 'No se pudo enviar el reporte.');
     }
   };

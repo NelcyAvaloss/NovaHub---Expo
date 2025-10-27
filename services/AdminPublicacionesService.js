@@ -228,6 +228,7 @@ export async function obtenerDetallePublicacion(id) {
       return null;
     }
 
+
     // 🔥 CAMBIO: estado visual directo del enum
     const visualState = pub.estado_de_revision ?? "publicada";
 
@@ -243,7 +244,7 @@ export async function obtenerDetallePublicacion(id) {
       area: pub.area,
       tags: [],
       reports: 0,
-      previewUri: null,
+      portadaUri: pub.portadaUri,
       comments: commentsCount,
       likes: likesCount,
       dislikes: dislikesCount,

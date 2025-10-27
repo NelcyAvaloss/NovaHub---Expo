@@ -15,44 +15,21 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import s from './AdminReportPublicDetallScreen.styles';
+import { actualizarEstadoReporte } from '../services/adminReportPubliService';
+import { obtenerDetallePublicacion } from '../services/AdminPublicacionesService';
 
 const likeIcon = require('../assets/IconoLike.png');
 const dislikeIcon = require('../assets/IconoDislike.png');
 
 export default function AdminReportDetallScreen({ route, navigation }) {
   const { reportId } = route.params || {};
+  const incomingReport = route.params?.report;
 
-  const baseReport = {
-    id: reportId || 'r1',
-    reason: 'Spam',
-    state: 'abierto',
-    notes: 'El contenido parece promocional repetitivo.',
-    targetType: 'publicacion',
-    targetId: 'p2',
-    reporter: 'Alice',
-    createdAt: '2025-10-12 12:33',
-  };
-
+  const [baseReport, setBaseReport] = React.useState(incomingReport);
   // Estado vivo del reporte
   const [reportState, setReportState] = React.useState(baseReport.state);
 
-  const targetPublication =
-    baseReport.targetType === 'publicacion'
-      ? {
-          id: 'p2',
-          titulo: 'Guía rápida para nuevos estudiantes',
-          descripcion:
-            'Pasos iniciales, recursos clave y consejos de la comunidad para empezar con buen pie.',
-          autor: 'María',
-          created_at: '2025-10-11',
-          portadaUri: null,
-          categoria: 'Ingeniería de Sistemas',
-          area: 'Programación',
-          colaboradores: ['Carlos', 'Ana', 'Luis'],
-          likes_count: 23,
-          dislikes_count: 2,
-        }
-      : null;
+  const [targetPublication, setTargetPublication] = React.useState(null);
 
   const notifyTo =
     baseReport.targetType === 'publicacion'
@@ -75,6 +52,18 @@ export default function AdminReportDetallScreen({ route, navigation }) {
 
     const subShow = Keyboard.addListener(showEvt, onShow);
     const subHide = Keyboard.addListener(hideEvt, onHide);
+    const fetchPostDetail = async () => {
+      try {
+        console.log('Fetching post detail for id:', baseReport);
+        const detail = await obtenerDetallePublicacion(baseReport.target.id);
+        if (detail) {
+          setTargetPublication(detail);
+        }
+      } catch (error) {
+        console.error('Error fetching post detail:', error);
+      }
+    };
+    fetchPostDetail();
     return () => {
       subShow.remove();
       subHide.remove();
@@ -243,29 +232,29 @@ export default function AdminReportDetallScreen({ route, navigation }) {
                 <View style={s.pubHeader}>
                   <View style={s.avatar}>
                     <Text style={s.avatarLetter}>
-                      {(targetPublication.autor?.[0] || 'N').toUpperCase()}
+                      {(targetPublication.author?.[0] || 'N').toUpperCase()}
                     </Text>
                   </View>
                   <View style={s.headerText}>
                     <Text style={s.autor} numberOfLines={1}>
-                      {targetPublication.autor}
+                      {targetPublication.author}
                     </Text>
                     <Text style={s.fecha}>
-                      {targetPublication.created_at
-                        ? new Date(targetPublication.created_at).toLocaleDateString()
+                      {targetPublication.createdAt
+                        ? new Date(targetPublication.createdAt).toLocaleDateString()
                         : 'Ahora'}
                     </Text>
                   </View>
                 </View>
 
-                {!!targetPublication.titulo && (
+                {!!targetPublication.title && (
                   <Text style={s.pubTitulo} numberOfLines={2}>
-                    {targetPublication.titulo}
+                    {targetPublication.title}
                   </Text>
                 )}
-                {!!targetPublication.descripcion && (
+                {!!targetPublication.body && (
                   <Text style={s.pubTexto} numberOfLines={3}>
-                    {targetPublication.descripcion}
+                    {targetPublication.body}
                   </Text>
                 )}
 
@@ -274,28 +263,28 @@ export default function AdminReportDetallScreen({ route, navigation }) {
                 )}
 
                 <View style={s.tagsRow}>
-                  {!!targetPublication.categoria && (
-                    <Text style={s.tagChip}>#{targetPublication.categoria}</Text>
+                  {!!targetPublication.category && (
+                    <Text style={s.tagChip}>#{targetPublication.category}</Text>
                   )}
                   {!!targetPublication.area && (
                     <Text style={s.tagChip}>#{targetPublication.area}</Text>
                   )}
                 </View>
 
-                {Array.isArray(targetPublication.colaboradores) &&
-                  targetPublication.colaboradores.length > 0 && (
+                {Array.isArray(targetPublication.equipo_colaborador) &&
+                  targetPublication.equipo_colaborador.length > 0 && (
                     <View style={s.collabBlock}>
                       <Text style={s.collabLabel}>Colaboradores</Text>
                       <View style={s.collabRow}>
-                        {targetPublication.colaboradores.slice(0, 5).map((name, idx) => (
+                        {targetPublication.equipo_colaborador.slice(0, 5).map((name, idx) => (
                           <View key={`${name}-${idx}`} style={s.collabPill}>
                             <Text style={s.collabPillText}>{name}</Text>
                           </View>
                         ))}
-                        {targetPublication.colaboradores.length > 5 && (
+                        {targetPublication.equipo_colaborador.length > 5 && (
                           <View style={s.collabPillMuted}>
                             <Text style={s.collabPillMutedText}>
-                              +{targetPublication.colaboradores.length - 5}
+                              +{targetPublication.equipo_colaborador.length - 5}
                             </Text>
                           </View>
                         )}
@@ -307,12 +296,12 @@ export default function AdminReportDetallScreen({ route, navigation }) {
                   <View style={s.voteRow}>
                     <View style={[s.voteBtn]}>
                       <Image source={likeIcon} style={s.voteImage} resizeMode="contain" />
-                      <Text style={s.voteCount}>{targetPublication.likes_count || 0}</Text>
+                      <Text style={s.voteCount}>{targetPublication.likes || 0}</Text>
                     </View>
                     <View style={{ width: 12 }} />
                     <View style={[s.voteBtn]}>
                       <Image source={dislikeIcon} style={s.voteImage} resizeMode="contain" />
-                      <Text style={s.voteCount}>{targetPublication.dislikes_count || 0}</Text>
+                      <Text style={s.voteCount}>{targetPublication.dislikes || 0}</Text>
                     </View>
                   </View>
 
