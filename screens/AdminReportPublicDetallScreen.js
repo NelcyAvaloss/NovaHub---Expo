@@ -17,7 +17,6 @@ import { Ionicons } from '@expo/vector-icons';
 import s from './AdminReportPublicDetallScreen.styles';
 import { actualizarEstadoReporte } from '../services/adminReportPubliService';
 import { obtenerDetallePublicacion } from '../services/AdminPublicacionesService';
-import { actualizarEstadoReporte } from '../services/adminReportPubliService';
 
 const likeIcon = require('../assets/IconoLike.png');
 const dislikeIcon = require('../assets/IconoDislike.png');
