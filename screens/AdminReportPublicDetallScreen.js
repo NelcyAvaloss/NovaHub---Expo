@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import s from './AdminReportPublicDetallScreen.styles';
 import { actualizarEstadoReporte } from '../services/adminReportPubliService';
 import { obtenerDetallePublicacion } from '../services/AdminPublicacionesService';
+import { notificarUsuario } from '../services/adminNotificacionesService';
 
 const likeIcon = require('../assets/IconoLike.png');
 const dislikeIcon = require('../assets/IconoDislike.png');
@@ -104,9 +105,15 @@ export default function AdminReportDetallScreen({ route, navigation }) {
     handleFocusEditor();
   };
 
-  const sendNotification = () => {
+  const sendNotification = async () => {
     if (!message.trim()) {
       Alert.alert('Mensaje vacío', 'Escribe un mensaje para enviar la notificación.');
+      return;
+    }
+    console.log('Sending notification to user id:', baseReport);
+    const result = await notificarUsuario(id_usuario= baseReport.reporterId, mensaje= message.trim());
+    if (!result) {
+      Alert.alert('Error', 'No se pudo enviar la notificación al usuario.');
       return;
     }
     const payload = {
@@ -355,7 +362,7 @@ export default function AdminReportDetallScreen({ route, navigation }) {
 
             <Pressable
               style={[s.sendBtn, !message.trim() && s.sendBtnDisabled]}
-              onPress={sendNotification}
+              onPress={async () => await sendNotification()}
               disabled={!message.trim()}
             >
               <Ionicons name="send" size={14} color="#FFFFFF" />

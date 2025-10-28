@@ -63,6 +63,7 @@ async function mapearReporte(reporte){
         targetType: reporte.tipo_objetivo,
         targetId: targetId,
         reporter: nombreUsuario,
+        reporterId: reporte.reportado_por,
         details: reporte.detalles,
         createdAt: reporte.fecha
     };
