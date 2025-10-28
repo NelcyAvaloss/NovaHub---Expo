@@ -8,52 +8,47 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "scheme": "novahub",
-
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#0c111b"
     },
-
-    "assetBundlePatterns": ["**/*"],
-
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "androidStatusBar": {
       "backgroundColor": "#0c111b",
       "barStyle": "light-content",
       "translucent": true
     },
-
+    "androidNavigationBar": {
+      "backgroundColor": "#0c111b",
+      "barStyle": "light-content",
+      "visible": "immersive"
+    },
     "backgroundColor": "#0c111b",
-
     "ios": {
       "supportsTablet": true
     },
-
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.NovaHub",
-      "softwareKeyboardLayoutMode": "pan",
-      "navigationBar": {
-        "backgroundColor": "#0c111b",
-        "barStyle": "light-content",
-        "visible": "immersive"
-      }
+      "package": "com.nelcy99.novahub",
+      "versionCode": 1,
+      "softwareKeyboardLayoutMode": "pan"
     },
-
     "web": {
       "favicon": "./assets/favicon.png"
     },
-
     "plugins": [
       "expo-web-browser",
       "expo-system-ui",
-      "@config-plugins/react-native-pdf"
+      "@config-plugins/react-native-pdf",
+      "expo-font"
     ],
-
     "extra": {
       "eas": {
         "projectId": "6b80a7a5-83ff-4022-b8da-b291af856c68"
