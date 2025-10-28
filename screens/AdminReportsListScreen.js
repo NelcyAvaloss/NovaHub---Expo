@@ -131,7 +131,7 @@ export default function AdminReportsListScreen({ navigation }) {
       }).subscribe();
 
     return () => {
-      supabase.removeSubscription(subscription);
+      supabase.removeChannel(subscription);
     };
 
   }, []);
