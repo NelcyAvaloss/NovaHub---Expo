@@ -47,7 +47,7 @@
       "expo-web-browser",
       "expo-system-ui",
       "@config-plugins/react-native-pdf",
-      "expo-font"
+      "expo-asset"
     ],
     "extra": {
       "eas": {
