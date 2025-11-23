@@ -22,7 +22,7 @@ import DetallePublicacionScreen from './screens/DetallePublicacionScreen';
 import RankingScreen from './screens/RankingScreen';
 import PerfilUsuarioScreen from './screens/PerfilUsuarioScreen';
 
-/* --------- ADMIN (tabs + detall) --------- */
+/* --------- ADMIN (tabs + detalle) --------- */
 import AdminDashboardScreen from './screens/AdminDashboardScreen';
 import AdminUsersListScreen from './screens/AdminUsersListScreen';
 import AdminUserDetallScreen from './screens/AdminUserDetallScreen';
@@ -42,7 +42,7 @@ import AdminModeradoresScreen from './screens/AdminModeradoresScreen';
 import AdminHilosSoporteScreen from './screens/AdminHilosSoporteScreen';
 import CarruselCategoriasScreen from './screens/CarruselCategoriasScreen';
 import CategoriaFeedScreen from './screens/CategoriaFeedScreen';
-
+import NotificacionesScreen from './screens/NotificacionesScreen';
 
 const RootStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -127,6 +127,7 @@ function AdminTabs() {
           ),
         }}
       />
+      
     </Tab.Navigator>
   );
 }
@@ -163,6 +164,13 @@ export default function App() {
             <RootStack.Screen name="PerfilUsuario" component={PerfilUsuarioScreen} />
             <RootStack.Screen name="CarruselCategorias" component={CarruselCategoriasScreen} />
             <RootStack.Screen name="CategoriaFeed" component={CategoriaFeedScreen} />
+
+            {/* NOTIFICACIONES, COMO ROOTSTACK.SCREEN */}
+            <RootStack.Screen
+              name="Notificaciones"
+              component={NotificacionesScreen}
+              options={{ headerShown: false }}
+            />
 
             {/* --------- Panel de Administración (tabs) --------- */}
             <RootStack.Screen name="AdminPanel" component={AdminTabs} />

@@ -32,15 +32,14 @@ const ROLE_STUDENT = 'estudiante';
 /* ==== Config carrusel categorías (inline) ==== */
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = Math.round(width * 0.30);
-const SPACING = 22; // se puede bajar a 18 para que quede aún más compacto horizontal
+const SPACING = 22;
 const ITEM_SIZE = CARD_WIDTH + SPACING;
 const SIDE_PADDING = (width - CARD_WIDTH) / 2;
 const CARD_RADIUS = 18;
 
-// Ajuste fino de alturas para eliminar espacio extra
-const CARD_HEIGHT = 160;      // coincide con el alto de styles.catsCardImage
-const CATS_TOP_OPEN = 2;      // pequeño respiro arriba cuando está abierto
-const TARGET_HEIGHT = CARD_HEIGHT + CATS_TOP_OPEN; // 162 px al abrir
+const CARD_HEIGHT = 160;
+const CATS_TOP_OPEN = 2;
+const TARGET_HEIGHT = CARD_HEIGHT + CATS_TOP_OPEN;
 
 const CATS_DATA = [
   { id: 'cat1', nombre: 'Ciencia y Tecnología', img: require('../assets/categorias/ciencia_tecnologia.jpg') },
@@ -164,7 +163,7 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
-  // Autoplay SIEMPRE activo (independiente de abrir/cerrar)
+  // Autoplay siempre activo
   useEffect(() => {
     requestAnimationFrame(() => {
       catsListRef.current?.scrollToOffset({ offset: offsetRef.current, animated: false });
@@ -184,7 +183,7 @@ export default function HomeScreen({ navigation }) {
   );
 
   const onScrollBeginDrag = () => {
-    stopAutoplay(); // pausar durante el drag
+    stopAutoplay();
   };
 
   const onMomentumScrollEnd = (e) => {
@@ -193,7 +192,7 @@ export default function HomeScreen({ navigation }) {
     setCurrentIndex(idx);
     offsetRef.current = x;
     recenterIfNeeded();
-    setTimeout(startAutoplay, 300); // reanudar
+    setTimeout(startAutoplay, 300);
   };
 
   const REPORT_REASONS = [
@@ -208,7 +207,7 @@ export default function HomeScreen({ navigation }) {
   ];
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportTarget, setReportTarget] = useState(null);
-  const [reportReason, setReportReason] = useState('spam');
+  const [reportReason, setReportReason] = useState('Spam');
   const [reportNote, setReportNote] = useState('');
 
   const homeChRef = useRef(null);
@@ -263,7 +262,7 @@ export default function HomeScreen({ navigation }) {
     return null;
   };
 
-  const fetchRol = async (why = '') => {
+  const fetchRol = async () => {
     try {
       const { data, error } = await supabase.auth.getUser();
       const user = data?.user || null;
@@ -281,12 +280,12 @@ export default function HomeScreen({ navigation }) {
 
   /* ===== auth / foco ===== */
   useEffect(() => {
-    fetchRol('mount');
+    fetchRol();
     const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
         const instant = getRolFromUser(session?.user);
         if (instant) setRolUsuario(instant);
-        else await fetchRol('auth_change_no_meta');
+        else await fetchRol();
       } else if (event === 'SIGNED_OUT') {
         setRolUsuario(null);
       }
@@ -299,9 +298,9 @@ export default function HomeScreen({ navigation }) {
 
   useEffect(() => {
     if (isFocused) {
-      fetchRol('focus');
-      const t1 = setTimeout(() => fetchRol('focus+400ms'), 400);
-      const t2 = setTimeout(() => fetchRol('focus+1200ms'), 1200);
+      fetchRol();
+      const t1 = setTimeout(() => fetchRol(), 400);
+      const t2 = setTimeout(() => fetchRol(), 1200);
       return () => { clearTimeout(t1); clearTimeout(t2); };
     }
   }, [isFocused]);
@@ -480,6 +479,41 @@ export default function HomeScreen({ navigation }) {
     });
   };
 
+  // Helper para crear notificaciones (reutilizable también para mensajes/comentarios)
+  const crearNotificacion = async ({
+    receptorId,
+    emisorId,
+    tipo,
+    titulo,
+    mensaje,
+    publicacionId = null,
+    comentarioId = null,
+  }) => {
+    try {
+      if (!receptorId || !emisorId || receptorId === emisorId) return;
+
+      // IMPORTANTE: nombre de tabla en minúsculas
+      const { error } = await supabase.from('notificaciones').insert([
+        {
+          id_usuario_receptor: receptorId,
+          id_usuario_emisor: emisorId,
+          tipo,
+          titulo,
+          mensaje,
+          id_publicacion: publicacionId,
+          id_comentario: comentarioId,
+          leida: false,
+        },
+      ]);
+
+      if (error) {
+        console.log('Error creando notificación:', error);
+      }
+    } catch (e) {
+      console.log('Error creando notificación (catch):', e);
+    }
+  };
+
   const applyVote = async (pubId, type) => {
     const { data: session } = await supabase.auth.getUser();
     const userId = session?.user?.id || null;
@@ -488,6 +522,7 @@ export default function HomeScreen({ navigation }) {
       return;
     }
 
+    // Actualización optimista local (no se toca)
     setVotesMap((prev) => {
       const cur = prev[pubId] || { likes: 0, dislikes: 0, myVote: 0 };
       let { likes, dislikes, myVote } = cur;
@@ -506,17 +541,40 @@ export default function HomeScreen({ navigation }) {
 
     try {
       const prevMyVote = votesMap[pubId]?.myVote || 0;
-      const intended = type === 'like' ? (prevMyVote === 1 ? 0 : 1) : (prevMyVote === -1 ? 0 : -1);
+      const intended = type === 'like'
+        ? (prevMyVote === 1 ? 0 : 1)
+        : (prevMyVote === -1 ? 0 : -1);
 
       if (intended === 0) {
-        await supabase.from('votos').delete().eq('id_usuario', userId).eq('id_publicacion', pubId);
+        await supabase
+          .from('votos')
+          .delete()
+          .eq('id_usuario', userId)
+          .eq('id_publicacion', pubId);
       } else {
         await supabase
           .from('votos')
-          .upsert([{ id_usuario: userId, id_publicacion: pubId, valor: intended }], {
-            onConflict: 'id_usuario,id_publicacion',
-          });
+          .upsert(
+            [{ id_usuario: userId, id_publicacion: pubId, valor: intended }],
+            { onConflict: 'id_usuario,id_publicacion' }
+          );
       }
+
+      // Si el voto final es un LIKE, creamos notificación al autor
+      if (type === 'like' && intended === 1) {
+        const pub = publicaciones.find((p) => p.id === pubId);
+        const receptorId = pub ? getAuthorIdFromItem(pub) : null;
+
+        await crearNotificacion({
+          receptorId,
+          emisorId: userId,
+          tipo: 'like_publicacion',
+          titulo: 'Nuevo like en tu publicación',
+          mensaje: `A alguien le gustó tu publicación "${pub?.titulo || 'en NovaHub'}".`,
+          publicacionId: pubId,
+        });
+      }
+
       await cargarVotos([{ id: pubId }]);
     } catch (err) {
       Alert.alert('Error', 'No se pudo registrar tu voto.');
@@ -542,7 +600,7 @@ export default function HomeScreen({ navigation }) {
 
       setReportModalOpen(false);
       setReportNote('');
-      setReportReason('spam');
+      setReportReason('Spam');
       setMenuPubId(null);
       Alert.alert('Gracias', 'Tu reporte fue enviado.');
     } catch (e) {
@@ -605,7 +663,7 @@ export default function HomeScreen({ navigation }) {
           >
             <ImageBackground
               source={item.img}
-              style={[styles.catsCardImage, { height: CARD_HEIGHT }]} // asegura 160px
+              style={[styles.catsCardImage, { height: CARD_HEIGHT }]}
               imageStyle={styles.catsCardImageStyle}
             >
               <View style={styles.catsOverlay} />
@@ -664,7 +722,7 @@ export default function HomeScreen({ navigation }) {
                 if (rolUsuario === ROLE_ADMIN) {
                   navigation.navigate('AdminPanel', { screen: 'AdminDashboard' });
                 } else {
-                  Alert.alert('Notificaciones', 'Próximamente…');
+                  navigation.navigate('Notificaciones');  
                 }
               }}
               activeOpacity={0.8}
@@ -711,14 +769,14 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* ==== CARRUSEL DESPLEGABLE (entre header y buscador) ==== */}
+      {/* ==== CARRUSEL DESPLEGABLE ==== */}
       <Animated.View
         style={[
           styles.catsWrap,
           {
-            height: catsHeight,               // 162 abierto / 0 cerrado
+            height: catsHeight,
             opacity: catsOpacity,
-            paddingTop: catsOpen ? CATS_TOP_OPEN : 8, // 2 abierto, 8 cerrado
+            paddingTop: catsOpen ? CATS_TOP_OPEN : 8,
             paddingBottom: 0,
             marginBottom: 0,
           },
@@ -755,7 +813,7 @@ export default function HomeScreen({ navigation }) {
         />
       </Animated.View>
 
-      {/* ==== BUSCADOR (con gap dinámico) ==== */}
+      {/* ==== BUSCADOR ==== */}
       <View style={[styles.searchContainer, { marginTop: gapBelowIcon }]}>
         <TouchableOpacity style={styles.searchBar} activeOpacity={0.9}>
           <Image source={require('../assets/IconoBusqueda.png')} style={styles.searchIcon} />
@@ -825,7 +883,7 @@ export default function HomeScreen({ navigation }) {
                         style={styles.kebabItem}
                         onPress={() => {
                           setMenuPubId(null);
-                          setReportReason('spam');
+                          setReportReason('Spam');
                           setReportNote('');
                           setReportModalOpen(true);
                         }}
