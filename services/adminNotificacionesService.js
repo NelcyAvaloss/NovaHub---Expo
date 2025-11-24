@@ -3,12 +3,13 @@ import * as Notifications from 'expo-notifications';
 
 
 
-export async function notificarUsuario(idUsuario,mensaje) {
+export async function notificarUsuario(idUsuario,titulo,mensaje) {
     const { data, error } = await supabase
     .from('Notificaciones')
     .insert({
         id_usuario: idUsuario,
         tipo: 'usuarios',
+        titulo: titulo,
         mensaje: mensaje
     })
     .select('*')
