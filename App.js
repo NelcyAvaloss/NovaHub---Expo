@@ -6,6 +6,9 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import * as Notifications from "expo-notifications"
+import * as Device from 'expo-device';
+import { supabase } from './screens/supabase';
 
 import { PublicacionProvider } from './contexts/PublicacionContext';
 
@@ -43,6 +46,37 @@ import AdminHilosSoporteScreen from './screens/AdminHilosSoporteScreen';
 import CarruselCategoriasScreen from './screens/CarruselCategoriasScreen';
 import CategoriaFeedScreen from './screens/CategoriaFeedScreen';
 import NotificacionesScreen from './screens/NotificacionesScreen';
+async function registerForPush() {
+  if (!Device.isDevice) return;
+  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  let finalStatus = existingStatus;
+  if (existingStatus !== 'granted') {
+    const { status } = await Notifications.requestPermissionsAsync();
+    finalStatus = status;
+  }
+  if (finalStatus !== 'granted') {
+    alert('Failed to get push token for push notification!');
+    return;
+  }
+  console.log("Registrado para notificaciones push, obteniendo token...");
+  const token = (await Notifications.getExpoPushTokenAsync()).data;
+  console.log("Token de notificaciones push:", token);
+  
+  const { data, error } =
+  //Insertar el token en supabase, si ya existe un registro con ese token, no hacer nada
+  await supabase.from('Tokens_Notificaciones').upsert(
+    {
+      token: token,
+    },
+    { onConflict: 'token' }
+  ).select();
+  if (error) {
+    console.error("Error al guardar el token en Supabase:", error);
+  } else {
+    console.log("Token guardado en Supabase:", data);
+  }
+
+}
 
 const RootStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -133,6 +167,25 @@ function AdminTabs() {
 }
 
 export default function App() {
+  React.useEffect(() => {
+    const {data:listener} = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN') {
+        console.log('Usuario firmado:', session.user);
+        await registerForPush();
+      }
+    });
+    return () => {
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+  React.useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session) {
+        console.log('Usuario ya firmado:', session.user);
+        await registerForPush();
+      }
+    });
+  }, []);
   return (
     <PublicacionProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>

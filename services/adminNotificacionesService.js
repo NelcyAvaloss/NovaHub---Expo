@@ -1,9 +1,13 @@
 import { supabase } from "../screens/supabase";
 import * as Notifications from 'expo-notifications';
-
+import * as Device from 'expo-device';
 
 
 export async function notificarUsuario(idUsuario,titulo,mensaje) {
+    if (!Device.isDevice) {
+        console.log('Las notificaciones push solo funcionan en dispositivos físicos.');
+        return null;
+    }
     const { data, error } = await supabase
     .from('Notificaciones')
     .insert({
@@ -43,7 +47,7 @@ export async function registrarseParaNotificaciones() {
     }
     //Obtener token
     console.log('Obteniendo token de notificaciones...');
-    const token = (await Notifications.getExpoPushTokenAsync()).data;
+    const token = (await Notifications.getDevicePushTokenAsync()).data;
     if(!token){
         console.log('No se pudo obtener el token de notificaciones');
         return null;

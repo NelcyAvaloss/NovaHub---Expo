@@ -1,6 +1,5 @@
 import React, { useState, useRef } from 'react';
 import { supabase } from './supabase';
-import { registrarseParaNotificaciones } from '../services/adminNotificacionesService';
 import {
   View,
   Text,
@@ -44,7 +43,6 @@ export default function LoginScreen() {
       Alert.alert('Error al iniciar sesión', error.message);
       return;
     }
-    //await registrarseParaNotificaciones();
     Alert.alert('Login exitoso', 'Bienvenido!');
     navigation.navigate('Home');
   };
