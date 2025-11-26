@@ -63,6 +63,16 @@ export default function HomeScreen({ navigation }) {
   const [rolUsuario, setRolUsuario] = useState(null);
   const [menuPubId, setMenuPubId] = useState(null);
 
+
+  // ALERTA GLOBAL (solo visual + realtime)
+  const [alertaGlobal, setAlertaGlobal] = useState(null);
+  const [alertaVisible, setAlertaVisible] = useState(true);
+
+
+
+
+
+
   // === Toggle carrusel (entre header y buscador) con LayoutAnimation ===
   const [catsOpen, setCatsOpen] = useState(false);
   const [catsHeight, setCatsHeight] = useState(0);
@@ -304,6 +314,17 @@ export default function HomeScreen({ navigation }) {
       return () => { clearTimeout(t1); clearTimeout(t2); };
     }
   }, [isFocused]);
+
+// Pertenece a las ALERTAS
+
+  useEffect(() => {
+  const params = navigation.getState()?.routes?.find(r => r.name === 'Home')?.params;
+  if (params?.alerta) {
+    setAlertaGlobal(params.alerta);
+    setAlertaVisible(true);
+  }
+}, [navigation, isFocused]);
+
 
   // ---------- publicaciones + votos ----------
   useFocusEffect(
@@ -704,6 +725,16 @@ export default function HomeScreen({ navigation }) {
     [navigation, scrollX]
   );
 
+
+
+
+
+//---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
   return (
     <View style={styles.container}>
       <ImageBackground source={require('../assets/FondoNovaHub.png')} style={styles.headerBackground}>
@@ -813,6 +844,10 @@ export default function HomeScreen({ navigation }) {
         />
       </Animated.View>
 
+
+
+
+
       {/* ==== BUSCADOR ==== */}
       <View style={[styles.searchContainer, { marginTop: gapBelowIcon }]}>
         <TouchableOpacity style={styles.searchBar} activeOpacity={0.9}>
@@ -820,6 +855,50 @@ export default function HomeScreen({ navigation }) {
           <TextInput placeholder="Buscar" placeholderTextColor="#999" style={styles.searchInput} />
         </TouchableOpacity>
       </View>
+
+
+      
+
+      {/* ==== ALERTA GLOBAL (DESPUÉS DEL BUSCADOR) ==== */}
+{alertaGlobal && alertaVisible && (
+  <View style={styles.alertContainer}>
+    <View style={styles.alertIconWrap}>
+      <Ionicons name="alert-circle" size={20} color="#B45309" />
+    </View>
+
+    <View style={styles.alertTextWrap}>
+      <Text style={styles.alertTitle} numberOfLines={1}>
+        {alertaGlobal.titulo || 'Alerta'}
+      </Text>
+
+      {alertaGlobal.mensaje ? (
+        <Text style={styles.alertMessage} numberOfLines={3}>
+          {alertaGlobal.mensaje}
+        </Text>
+      ) : null}
+    </View>
+
+    <TouchableOpacity
+      onPress={() => setAlertaVisible(false)}
+      style={styles.alertCloseBtn}
+    >
+      <Ionicons name="close" size={18} color="#64748B" />
+    </TouchableOpacity>
+  </View>
+)}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
       <Text style={styles.titlePublicacion}>Publicaciones</Text>
 

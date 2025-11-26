@@ -384,4 +384,49 @@ export const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
+
+
+
+
+
+    /* ===== Alerta global debajo del buscador ===== */
+  alertContainer: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FBBF24',      
+    backgroundColor: '#FFFBEB', 
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  alertIconWrap: {
+    marginRight: 8,
+    marginTop: 2,
+  },
+  alertTextWrap: {
+    flex: 1,
+  },
+  alertTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#92400E',
+    marginBottom: 2,
+  },
+  alertMessage: {
+    fontSize: 12,
+    color: '#78350F',
+  },
+  alertCloseBtn: {
+    marginLeft: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+
+
+
+
 });

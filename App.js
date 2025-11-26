@@ -43,16 +43,18 @@ import AdminHilosSoporteScreen from './screens/AdminHilosSoporteScreen';
 import CarruselCategoriasScreen from './screens/CarruselCategoriasScreen';
 import CategoriaFeedScreen from './screens/CategoriaFeedScreen';
 import NotificacionesScreen from './screens/NotificacionesScreen';
+import AdminCrearAlertaScreen from './screens/AdminCrearAlertaScreen';
+
 
 const RootStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 /** RUTA INICIAL **/
 // Opción fija:
-const INITIAL_ROUTE = 'Bienvenido';
+//const INITIAL_ROUTE = 'Bienvenido';
 
 // Opción condicional MODO DESARROLLO:
-// const INITIAL_ROUTE = __DEV__ ? 'PerfilUsuario' : 'Bienvenido';
+const INITIAL_ROUTE = __DEV__ ? 'AdminPanel' : 'Bienvenido';
 
 /* --------- Tabs del Panel de Administración --------- */
 function AdminTabs() {
@@ -184,6 +186,8 @@ export default function App() {
             <RootStack.Screen name="AdminReportCommentDetall" component={AdminReportCommentDetallScreen} />
             <RootStack.Screen name="AdminReportUserDetall" component={AdminReportUserDetallScreen} />
             <RootStack.Screen name="AdminModeradores" component={AdminModeradoresScreen} />
+            <RootStack.Screen name="AdminCrearAlerta" component={AdminCrearAlertaScreen} />
+
           </RootStack.Navigator>
         </NavigationContainer>
       </GestureHandlerRootView>
