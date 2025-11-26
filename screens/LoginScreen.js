@@ -43,7 +43,6 @@ export default function LoginScreen() {
       Alert.alert('Error al iniciar sesión', error.message);
       return;
     }
-
     Alert.alert('Login exitoso', 'Bienvenido!');
     navigation.navigate('Home');
   };

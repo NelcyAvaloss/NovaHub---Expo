@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "545186959640",
+    "project_id": "novahub-a6a40",
+    "storage_bucket": "novahub-a6a40.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:545186959640:android:afeb9abb3fa3cbe5640e6d",
+        "android_client_info": {
+          "package_name": "com.nelcy99.novahub"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCkFC-gFe_OCF7hDMA1agG8XOMrCe1Zq04"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
