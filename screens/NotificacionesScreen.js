@@ -104,8 +104,8 @@ export default function NotificacionesScreen() {
 
   const renderItem = ({ item }) => {
     const isUnread = !item.leida;
-    const fecha = item.created_at
-      ? new Date(item.created_at).toLocaleString()
+    const fecha = item.fecha
+      ? new Date(item.fecha).toLocaleString()
       : '';
 
     return (
