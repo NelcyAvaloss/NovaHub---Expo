@@ -85,8 +85,27 @@ export default function HomeScreen({ navigation }) {
     if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
       UIManager.setLayoutAnimationEnabledExperimental(true);
     }
+    const obtenerAlerta = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('Alertas')
+          .select('*')
+          .limit(1);
+        if (error) {
+          console.error('Error al obtener alerta:', error);
+          return;
+        }
+        if (data && data.length > 0) {
+          setAlertaGlobal(data[0]);
+        }
+      } catch (error) {
+        console.error('Error al obtener alerta:', error);
+      }
+    };
 
+    obtenerAlerta();
   }, []);
+  
 
   const toggleCats = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -874,9 +893,9 @@ export default function HomeScreen({ navigation }) {
         {alertaGlobal.titulo || 'Alerta'}
       </Text>
 
-      {alertaGlobal.mensaje ? (
+      {alertaGlobal.descripcion ? (
         <Text style={styles.alertMessage} numberOfLines={3}>
-          {alertaGlobal.mensaje}
+          {alertaGlobal.descripcion}
         </Text>
       ) : null}
     </View>

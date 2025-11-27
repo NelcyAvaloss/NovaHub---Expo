@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import styles from './AdminCrearAlertaScreen.styles';
+import { supabase } from "../screens/supabase";
 
 export default function AdminCrearAlertaScreen({ navigation }) {
   const [titulo, setTitulo] = useState('');
@@ -25,7 +26,7 @@ export default function AdminCrearAlertaScreen({ navigation }) {
   );
 
   /** FRONT SOLAMENTE – SIN SUPABASE */
-  const handleGuardar = useCallback(() => {
+  const handleGuardar = useCallback(async () => {
     setErrorMsg('');
     setSuccessMsg('');
 
@@ -35,23 +36,34 @@ export default function AdminCrearAlertaScreen({ navigation }) {
     }
 
     setLoading(true);
+    console.log('Guardando alerta...', { titulo: titulo.trim(), mensaje: mensaje.trim() });
 
-    // Simula guardado (FRONT)
-    setTimeout(() => {
-      const alertaData = {
+        const { data, error } = await supabase
+      .from('Alertas')
+      .update({
         titulo: titulo.trim(),
-        mensaje: mensaje.trim(),
-      };
-
+        descripcion: mensaje.trim(),
+        actualizado_en: new Date().toISOString(),
+      })
+      .eq('id', 4)
+      .select('*');
+    if (error) {
+      console.error('Error al crear alerta:', error);
+      setErrorMsg('Error al crear la alerta. Intenta nuevamente.');
+      setLoading(false);
+      return;
+    }
+    console.log('Alerta creada con éxito:', data);
+    setSuccessMsg('Alerta creada con éxito.');
       setSuccessMsg('Alerta lista.');
 
       // Enviar alerta a Home
-      navigation.navigate('Home', { alerta: alertaData });
+      navigation.navigate('Home');
 
       setTitulo('');
       setMensaje('');
       setLoading(false);
-    }, 700);
+
   }, [titulo, mensaje]);
 
   return (
