@@ -1,9 +1,3 @@
-// AdminDashboardScreen.js
-// Dashboard conectado a Supabase (sin mocks):
-// - KPIs (usuarios totales via servicio, publicaciones 30d, reportes abiertos, tasa aprobación)
-// - Últimas publicaciones y reportes
-// - Pull-to-refresh, auto-refresh al enfocar, realtime
-
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   SafeAreaView, View, Text, Pressable, Image, ImageBackground,
@@ -20,10 +14,10 @@ import { contadoresUsuarios } from '../services/usuariosService';
 export default function AdminDashboardScreen({ navigation }) {
   // Estado de KPIs y listas
   const [kpis, setKpis] = useState({
-    newUsers: 0,          // aquí mostramos "Usuarios totales" (desde contadoresUsuarios)
-    publications: 0,      // publicaciones creadas últimos 30 días
-    openReports: 0,       // reportes abiertos
-    approvalRate: 0       // % aprobadas (últimos 30 días)
+    newUsers: 0,          
+    publications: 0,      
+    openReports: 0,       
+    approvalRate: 0       
   });
   const [lastPosts, setLastPosts] = useState([]);     // últimas publicaciones
   const [lastReports, setLastReports] = useState([]); // últimos reportes
@@ -42,16 +36,6 @@ export default function AdminDashboardScreen({ navigation }) {
       // 1) Usuarios: usar el servicio probado (total/activos/bloqueados)
       const mRes = await contadoresUsuarios();
       const totals = mRes?.ok ? mRes.data : { total: 0, activos: 0, bloqueados: 0 };
-
-      // Opcional (nuevos 30d): si querés mostrar "usuarios nuevos 30d", descomenta:
-      // let newUsers30d = 0;
-      // try {
-      //   const { count } = await supabase
-      //     .from('usuarios')
-      //     .select('*', { count: 'exact', head: true })
-      //     .gte('created_at', fromISO);
-      //   newUsers30d = count || 0;
-      // } catch {}
 
       // 2) Publicaciones 30d
       const { count: publications } = await supabase
@@ -205,6 +189,23 @@ export default function AdminDashboardScreen({ navigation }) {
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
+
+        {/* BOTÓN DE CREAR ALERTA – usando solo estilos existentes (ctaRow/btn/btnPrimary/etc.) */}
+        <View style={styles.ctaRow}>
+          <Pressable
+            onPress={() => navigation.navigate('AdminCrearAlerta')}
+            style={[styles.btn, styles.btnPrimary]}
+          >
+            <Ionicons
+              name="alert-circle-outline"
+              size={18}
+              color="#FFFFFF"
+              style={styles.btnIcon}
+            />
+            <Text style={styles.btnPrimaryText}>Crear Alerta</Text>
+          </Pressable>
+        </View>
+
         {/* KPIs */}
         <View style={styles.sectionCard}>
           <Text style={styles.sectionHeading}>Resumen</Text>
@@ -324,7 +325,7 @@ export default function AdminDashboardScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Acciones rápidas (si las tenías, quedan igual) */}
+        
         <View style={{ height: 16 }} />
       </ScrollView>
     </SafeAreaView>

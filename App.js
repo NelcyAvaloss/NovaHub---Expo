@@ -1,3 +1,4 @@
+// App.js
 import 'react-native-gesture-handler';
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
@@ -6,7 +7,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import * as Notifications from "expo-notifications"
+import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { supabase } from './screens/supabase';
 
@@ -46,51 +47,56 @@ import AdminHilosSoporteScreen from './screens/AdminHilosSoporteScreen';
 import CarruselCategoriasScreen from './screens/CarruselCategoriasScreen';
 import CategoriaFeedScreen from './screens/CategoriaFeedScreen';
 import NotificacionesScreen from './screens/NotificacionesScreen';
-async function registerForPush() {
-  if (!Device.isDevice) return;
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
-  if (existingStatus !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
-  }
-  if (finalStatus !== 'granted') {
-    alert('Failed to get push token for push notification!');
-    return;
-  }
-  console.log("Registrado para notificaciones push, obteniendo token...");
-  const token = (await Notifications.getExpoPushTokenAsync()).data;
-  console.log("Token de notificaciones push:", token);
-  
-  const { data, error } =
-  //Insertar el token en supabase, si ya existe un registro con ese token, no hacer nada
-  await supabase.from('Tokens_Notificaciones').upsert(
-    {
-      token: token,
-    },
-    { onConflict: 'token' }
-  ).select();
-  if (error) {
-    console.error("Error al guardar el token en Supabase:", error);
-  } else {
-    console.log("Token guardado en Supabase:", data);
-  }
-
-}
+import AdminCrearAlertaScreen from './screens/AdminCrearAlertaScreen';
 
 const RootStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-/** RUTA INICIAL **/
-// Opción fija:
-const INITIAL_ROUTE = 'Bienvenido';
+/* ------ Handler básico de notificaciones (para que se muestren) ------ */
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
-// Opción condicional MODO DESARROLLO:
-// const INITIAL_ROUTE = __DEV__ ? 'PerfilUsuario' : 'Bienvenido';
+/* --------- REGISTRO DE PUSH TOKEN --------- */
+async function registerForPush() {
+  try {
+    if (!Device.isDevice) {
+      console.log('Las notificaciones push solo funcionan en dispositivo físico.');
+      return;
+    }
+
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+
+    if (finalStatus !== 'granted') {
+      console.log('Permiso de notificaciones NO concedido.');
+      return;
+    }
+
+    const tokenData = await Notifications.getExpoPushTokenAsync();
+    const token = tokenData.data;
+    console.log('Expo push token:', token);
+
+    // Si luego quieres guardar el token en Supabase, aquí lo haces.
+  } catch (e) {
+    console.log('Error en registerForPush:', e);
+  }
+}
+
+/** RUTA INICIAL **/
+const INITIAL_ROUTE = __DEV__ ? 'AdminPanel' : 'Bienvenido';
 
 /* --------- Tabs del Panel de Administración --------- */
 function AdminTabs() {
-  // Tab inicial del panel 
   const ADMIN_INITIAL_TAB = 'AdminDashboard';
 
   return (
@@ -161,31 +167,38 @@ function AdminTabs() {
           ),
         }}
       />
-      
     </Tab.Navigator>
   );
 }
 
 export default function App() {
+  // Cuando el usuario se loguea
   React.useEffect(() => {
-    const {data:listener} = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN') {
-        console.log('Usuario firmado:', session.user);
-        await registerForPush();
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN') {
+          console.log('Usuario firmado:', session.user);
+          await registerForPush();
+        }
       }
-    });
+    );
+
     return () => {
-      listener.subscription.unsubscribe();
+      listener.subscription?.unsubscribe?.();
     };
   }, []);
+
+  // Cuando la app arranca, por si ya había sesión
   React.useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    (async () => {
+      const { data: { session } = {} } = await supabase.auth.getSession();
       if (session) {
         console.log('Usuario ya firmado:', session.user);
         await registerForPush();
       }
-    });
+    })();
   }, []);
+
   return (
     <PublicacionProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
@@ -218,7 +231,6 @@ export default function App() {
             <RootStack.Screen name="CarruselCategorias" component={CarruselCategoriasScreen} />
             <RootStack.Screen name="CategoriaFeed" component={CategoriaFeedScreen} />
 
-            {/* NOTIFICACIONES, COMO ROOTSTACK.SCREEN */}
             <RootStack.Screen
               name="Notificaciones"
               component={NotificacionesScreen}
@@ -237,6 +249,7 @@ export default function App() {
             <RootStack.Screen name="AdminReportCommentDetall" component={AdminReportCommentDetallScreen} />
             <RootStack.Screen name="AdminReportUserDetall" component={AdminReportUserDetallScreen} />
             <RootStack.Screen name="AdminModeradores" component={AdminModeradoresScreen} />
+            <RootStack.Screen name="AdminCrearAlerta" component={AdminCrearAlertaScreen} />
           </RootStack.Navigator>
         </NavigationContainer>
       </GestureHandlerRootView>
