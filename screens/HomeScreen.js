@@ -66,6 +66,39 @@ export default function HomeScreen({ navigation }) {
   const [menuPubId, setMenuPubId] = useState(null);
 
 
+
+
+  // BÚSQUEDA
+const [searchText, setSearchText] = useState('');
+
+const publicacionesFiltradas = useMemo(() => {
+  if (!searchText.trim()) return publicaciones;
+
+  const term = searchText.toLowerCase();
+
+  return publicaciones.filter((p) => {
+    const titulo = p.titulo?.toLowerCase() || '';
+    const desc = p.descripcion?.toLowerCase() || '';
+    const autor = p.autor?.toLowerCase() || '';
+    const categoria = p.categoria?.toLowerCase() || '';
+    const area = p.area?.toLowerCase() || '';
+
+    return (
+      titulo.includes(term) ||
+      desc.includes(term) ||
+      autor.includes(term) ||
+      categoria.includes(term) ||
+      area.includes(term)
+    );
+  });
+}, [publicaciones, searchText]);
+
+
+
+
+
+
+
   // ALERTA GLOBAL (solo visual + realtime)
   const [alertaGlobal, setAlertaGlobal] = useState(null);
   const [alertaVisible, setAlertaVisible] = useState(true);
@@ -852,12 +885,21 @@ export default function HomeScreen({ navigation }) {
 
 
       {/* ==== BUSCADOR ==== */}
-      <View style={[styles.searchContainer, { marginTop: gapBelowIcon }]}>
-        <TouchableOpacity style={styles.searchBar} activeOpacity={0.9}>
-          <Image source={require('../assets/IconoBusqueda.png')} style={styles.searchIcon} />
-          <TextInput placeholder="Buscar" placeholderTextColor="#999" style={styles.searchInput} />
-        </TouchableOpacity>
-      </View>
+<View style={[styles.searchContainer, { marginTop: gapBelowIcon }]}>
+  <TouchableOpacity style={styles.searchBar} activeOpacity={0.9}>
+    <Image source={require('../assets/IconoBusqueda.png')} style={styles.searchIcon} />
+    <TextInput
+      placeholder="Buscar"
+      placeholderTextColor="#999"
+      style={styles.searchInput}
+      value={searchText}
+      onChangeText={setSearchText}
+    />
+  </TouchableOpacity>
+</View>
+
+
+
 
 
       
@@ -908,7 +950,7 @@ export default function HomeScreen({ navigation }) {
       <View style={styles.feedContainer}>
         <FlatList
           ref={flatListRef}
-          data={publicaciones}
+          data={publicacionesFiltradas}
           keyExtractor={(item, i) => String(item?.id ?? i)}
           contentContainerStyle={styles.listContent}
           renderItem={({ item }) => {
