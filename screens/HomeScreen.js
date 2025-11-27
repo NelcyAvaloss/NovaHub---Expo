@@ -21,8 +21,6 @@ import { styles } from './Home.styles';
 import { supabase } from './supabase';
 import { Ionicons } from '@expo/vector-icons';
 
-import { registrarseParaNotificaciones } from '../services/adminNotificacionesService';
-
 const likeIcon = require('../assets/IconoLike.png');
 const likeIconActive = require('../assets/Icono_LikeActivo.png');
 const dislikeIcon = require('../assets/IconoDislike.png');
