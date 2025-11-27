@@ -34,9 +34,9 @@ export default function NotificacionesScreen() {
 
       const { data, error } = await supabase
         .from('Notificaciones') 
-        .select('id, titulo, mensaje, tipo, leida, created_at')
-        .eq('id_usuario_receptor', user.id)
-        .order('created_at', { ascending: false });
+        .select('id, titulo, mensaje, tipo, leida, fecha')
+        .eq('id_usuario', user.id)
+        .order('fecha', { ascending: false });
 
       if (error) {
         console.log('Error cargando notificaciones:', error);
@@ -53,10 +53,25 @@ export default function NotificacionesScreen() {
       setRefreshing(false);
     }
   }, []);
+  const subscribeToNotificationChanges = useCallback(async() => {
+    const currentUserId = await supabase.auth.getUser().then(res => res.data.user?.id);
+    if (!currentUserId) return null;
+    const subscription = supabase
+      .channel('notificaciones-channel')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'Notificaciones', filter: `id_usuario=eq.${currentUserId}` }, payload => {
+        console.log('Cambio en notificaciones recibido:', payload);
+        fetchNotifications();
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(subscription);
+    }
+  }, [fetchNotifications]);
 
   useEffect(() => {
+    subscribeToNotificationChanges();
     fetchNotifications();
-  }, [fetchNotifications]);
+  }, [fetchNotifications, subscribeToNotificationChanges]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -89,8 +104,8 @@ export default function NotificacionesScreen() {
 
   const renderItem = ({ item }) => {
     const isUnread = !item.leida;
-    const fecha = item.created_at
-      ? new Date(item.created_at).toLocaleString()
+    const fecha = item.fecha
+      ? new Date(item.fecha).toLocaleString()
       : '';
 
     return (

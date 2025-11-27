@@ -7,8 +7,6 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
 import { supabase } from './screens/supabase';
 
 import { PublicacionProvider } from './contexts/PublicacionContext';
@@ -52,45 +50,6 @@ import AdminCrearAlertaScreen from './screens/AdminCrearAlertaScreen';
 const RootStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-/* ------ Handler básico de notificaciones (para que se muestren) ------ */
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
-
-/* --------- REGISTRO DE PUSH TOKEN --------- */
-async function registerForPush() {
-  try {
-    if (!Device.isDevice) {
-      console.log('Las notificaciones push solo funcionan en dispositivo físico.');
-      return;
-    }
-
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-
-    if (finalStatus !== 'granted') {
-      console.log('Permiso de notificaciones NO concedido.');
-      return;
-    }
-
-    const tokenData = await Notifications.getExpoPushTokenAsync();
-    const token = tokenData.data;
-    console.log('Expo push token:', token);
-
-    // Si luego quieres guardar el token en Supabase, aquí lo haces.
-  } catch (e) {
-    console.log('Error en registerForPush:', e);
-  }
-}
 
 /** RUTA INICIAL **/
 const INITIAL_ROUTE = __DEV__ ? 'AdminPanel' : 'Bienvenido';
@@ -172,32 +131,7 @@ function AdminTabs() {
 }
 
 export default function App() {
-  // Cuando el usuario se loguea
-  React.useEffect(() => {
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === 'SIGNED_IN') {
-          console.log('Usuario firmado:', session.user);
-          await registerForPush();
-        }
-      }
-    );
-
-    return () => {
-      listener.subscription?.unsubscribe?.();
-    };
-  }, []);
-
-  // Cuando la app arranca, por si ya había sesión
-  React.useEffect(() => {
-    (async () => {
-      const { data: { session } = {} } = await supabase.auth.getSession();
-      if (session) {
-        console.log('Usuario ya firmado:', session.user);
-        await registerForPush();
-      }
-    })();
-  }, []);
+ 
 
   return (
     <PublicacionProvider>

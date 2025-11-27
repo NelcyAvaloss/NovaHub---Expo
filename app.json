@@ -31,8 +31,6 @@
       "supportsTablet": true
     },
     "android": {
-      "googleServicesFile": "./google-services.json",
-      "useNextNotificationsApi": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -49,8 +47,7 @@
       "expo-web-browser",
       "expo-system-ui",
       "@config-plugins/react-native-pdf",
-      "expo-asset",
-      "expo-notifications"
+      "expo-asset"
     ],
     "extra": {
       "eas": {

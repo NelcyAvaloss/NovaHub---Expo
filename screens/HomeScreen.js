@@ -21,8 +21,6 @@ import { styles } from './Home.styles';
 import { supabase } from './supabase';
 import { Ionicons } from '@expo/vector-icons';
 
-import { registrarseParaNotificaciones } from '../services/adminNotificacionesService';
-
 const likeIcon = require('../assets/IconoLike.png');
 const likeIconActive = require('../assets/Icono_LikeActivo.png');
 const dislikeIcon = require('../assets/IconoDislike.png');
@@ -118,8 +116,27 @@ const publicacionesFiltradas = useMemo(() => {
     if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
       UIManager.setLayoutAnimationEnabledExperimental(true);
     }
+    const obtenerAlerta = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('Alertas')
+          .select('*')
+          .limit(1);
+        if (error) {
+          console.error('Error al obtener alerta:', error);
+          return;
+        }
+        if (data && data.length > 0) {
+          setAlertaGlobal(data[0]);
+        }
+      } catch (error) {
+        console.error('Error al obtener alerta:', error);
+      }
+    };
 
+    obtenerAlerta();
   }, []);
+  
 
   const toggleCats = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -916,9 +933,9 @@ const publicacionesFiltradas = useMemo(() => {
         {alertaGlobal.titulo || 'Alerta'}
       </Text>
 
-      {alertaGlobal.mensaje ? (
+      {alertaGlobal.descripcion ? (
         <Text style={styles.alertMessage} numberOfLines={3}>
-          {alertaGlobal.mensaje}
+          {alertaGlobal.descripcion}
         </Text>
       ) : null}
     </View>
