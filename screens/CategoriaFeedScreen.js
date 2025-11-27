@@ -27,6 +27,12 @@ const dislikeIconActive = require('../assets/Icono_DislikeActivo.png');
 const ROLE_ADMIN = 'administrador';
 const ROLE_STUDENT = 'estudiante';
 
+// --- MODOS DE ORDEN (igual que en Home) ---
+const SORT_MODES = {
+  DATE_DESC: 'fecha_desc',
+  RELEVANCE: 'relevancia',
+};
+
 // --- AREAS Y CATEGORIAS ---
 const categoriasConAreas = {
   'Ciencia y Tecnología': ['Desarrollo Web', 'Biotecnología', 'Robótica'],
@@ -35,6 +41,17 @@ const categoriasConAreas = {
   Ingeniería: ['Civil', 'Eléctrica', 'Mecánica'],
   Educación: ['Educación Infantil', 'Pedagogía', 'Didáctica'],
 };
+
+const REPORT_REASONS = [
+  { key: 'Spam', label: 'Spam' },
+  { key: 'Acoso/Agresion', label: 'Agresión' },
+  { key: 'NSFW', label: 'NSFW (contenido sensible)' },
+  { key: 'Contenido engañoso', label: 'Contenido engañoso' },
+  { key: 'Lenguaje ofensivo', label: 'Lenguaje ofensivo' },
+  { key: 'Seguridad', label: 'Problema de seguridad' },
+  { key: 'Privacidad', label: 'Problema de privacidad' },
+  { key: 'Sin clasificar', label: 'Reporte sin clasificar' },
+];
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -53,12 +70,15 @@ export default function CategoriaFeedScreen({ navigation, route }) {
   const [menuPubId, setMenuPubId] = useState(null);
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportTarget, setReportTarget] = useState(null);
-  const [reportReason, setReportReason] = useState('spam');
+  const [reportReason, setReportReason] = useState('Spam');
   const [reportNote, setReportNote] = useState('');
 
   // Filtros
   const [search, setSearch] = useState('');
   const [selectedArea, setSelectedArea] = useState(null);
+
+  // Orden (HU-014-BA)
+  const [sortMode, setSortMode] = useState(SORT_MODES.DATE_DESC);
 
   // Accordion Áreas
   const [areasOpen, setAreasOpen] = useState(false);
@@ -282,25 +302,93 @@ export default function CategoriaFeedScreen({ navigation, route }) {
     [navigation]
   );
 
+  // === Helpers para navegar al perfil del autor (igual que en Home) ===
+  const getAuthorIdFromItem = (item) => {
+    return (
+      item?.id_usuario ??
+      item?.usuario_id ??
+      item?.user_id ??
+      item?.autor_id ??
+      item?.author_id ??
+      null
+    );
+  };
+
+  const openPerfilAutor = useCallback(
+    (item) => {
+      const perfil = {
+        id: getAuthorIdFromItem(item),
+        nombre: item?.autor || 'Autor',
+        email: null,
+        avatarUri: null,
+      };
+      navigation.navigate('PerfilUsuario', { perfil });
+    },
+    [navigation]
+  );
+
   // Áreas disponibles para la categoría actual
   const areasDisponibles = useMemo(() => {
     const key = typeof nombre === 'string' ? nombre : '';
     return categoriasConAreas[key] || [];
   }, [nombre]);
 
-  // Filtro local (texto + área)
+  // === Filtro + ORDEN (igual que Home, + área) ===
   const filteredPublicaciones = useMemo(() => {
-    const q = (search || '').trim().toLowerCase();
-    return (publicaciones || []).filter((p) => {
-      if (selectedArea && String(p?.area || '').toLowerCase() !== String(selectedArea).toLowerCase()) {
-        return false;
-      }
-      if (!q) return true;
-      const campos = [p?.titulo, p?.descripcion, p?.autor, p?.categoria, p?.area]
-        .map((v) => String(v || '').toLowerCase());
-      return campos.some((t) => t.includes(q));
-    });
-  }, [publicaciones, search, selectedArea]);
+    const term = (search || '').trim().toLowerCase();
+
+    // 1) Filtrar por categoría/área seleccionada
+    let filtradas = publicaciones;
+    if (selectedArea) {
+      filtradas = filtradas.filter((p) =>
+        String(p?.area || '').toLowerCase() === String(selectedArea).toLowerCase()
+      );
+    }
+
+    // 2) Filtrar por texto (igual que Home)
+    if (term) {
+      filtradas = filtradas.filter((p) => {
+        const texto = [
+          p.titulo,
+          p.descripcion,
+          p.autor,
+          p.categoria,
+          p.area,
+          p.equipo_colaborador,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        return texto.includes(term);
+      });
+    }
+
+    // 3) Ordenar según modo (HU-014-BA)
+    const resultado = [...filtradas];
+
+    const getFechaMs = (p) =>
+      p.created_at ? new Date(p.created_at).getTime() : 0;
+
+    const getRelevancia = (p) => {
+      const v = votesMap[p.id] || {};
+      const likes = v.likes ?? p.likes_count ?? p.likes ?? 0;
+      const dislikes = v.dislikes ?? p.dislikes_count ?? p.dislikes ?? 0;
+      return likes - dislikes;
+    };
+
+    if (sortMode === SORT_MODES.DATE_DESC) {
+      resultado.sort((a, b) => getFechaMs(b) - getFechaMs(a));
+    } else if (sortMode === SORT_MODES.RELEVANCE) {
+      resultado.sort((a, b) => {
+        const rb = getRelevancia(b);
+        const ra = getRelevancia(a);
+        if (rb !== ra) return rb - ra;
+        return getFechaMs(b) - getFechaMs(a);
+      });
+    }
+
+    return resultado;
+  }, [publicaciones, search, selectedArea, sortMode, votesMap]);
 
   // Carga + realtime
   useFocusEffect(
@@ -315,6 +403,7 @@ export default function CategoriaFeedScreen({ navigation, route }) {
         setSearch('');
         setAreasOpen(false);
         caret.setValue(0);
+        setSortMode(SORT_MODES.DATE_DESC); // reset orden
         seedVotesFromItems(pubs);
         await cargarVotos(pubs);
 
@@ -334,7 +423,9 @@ export default function CategoriaFeedScreen({ navigation, route }) {
               .from('Publicaciones').select('*, autor:usuarios(nombre)').eq('id', row.id).single();
             if (!error && data) {
               const pub = { ...data, autor: data.autor?.nombre || 'Autor' };
-              const okByName = nombre ? String(pub.categoria || '').toLowerCase() === String(nombre).toLowerCase() : true;
+              const okByName = nombre
+                ? String(pub.categoria || '').toLowerCase() === String(nombre).toLowerCase()
+                : true;
               const okById   = categoriaId ? pub.categoria_id === categoriaId : true;
               const ok = nombre ? okByName : okById;
               if (ok) {
@@ -386,9 +477,16 @@ export default function CategoriaFeedScreen({ navigation, route }) {
               </View>
 
               <View style={homeStyles.headerText}>
-                <Text style={homeStyles.nombreAutor} numberOfLines={1}>
-                  {item.autor || 'Autor'}
-                </Text>
+                {/* Nombre clickeable para ir al perfil */}
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => openPerfilAutor(item)}
+                >
+                  <Text style={homeStyles.nombreAutor} numberOfLines={1}>
+                    {item.autor || 'Autor'}
+                  </Text>
+                </TouchableOpacity>
+
                 <Text style={homeStyles.fechaTexto}>
                   {item.created_at ? new Date(item.created_at).toLocaleDateString() : 'Ahora'}
                 </Text>
@@ -408,7 +506,7 @@ export default function CategoriaFeedScreen({ navigation, route }) {
               <View style={o.kebabMenu}>
                 <TouchableOpacity
                   style={o.kebabItem}
-                  onPress={() => { setMenuPubId(null); setReportReason('spam'); setReportNote(''); setReportModalOpen(true); }}
+                  onPress={() => { setMenuPubId(null); setReportReason('Spam'); setReportNote(''); setReportModalOpen(true); }}
                 >
                   <Text style={o.kebabItemText}>Reportar publicación</Text>
                 </TouchableOpacity>
@@ -476,7 +574,7 @@ export default function CategoriaFeedScreen({ navigation, route }) {
         </View>
       );
     },
-    [applyVote, irADetalle, votesMap, menuPubId]
+    [applyVote, irADetalle, votesMap, menuPubId, openPerfilAutor]
   );
 
   return (
@@ -492,20 +590,25 @@ export default function CategoriaFeedScreen({ navigation, route }) {
         </View>
       </ImageBackground>
 
-      {/* Buscador */}
-      <View style={s.searchContainer}>
-        <View style={s.searchBar}>
-          <Image source={require('../assets/IconoBusqueda.png')} style={s.searchIcon} />
+      {/* ==== BUSCADOR  ==== */}
+      <View style={[homeStyles.searchContainer, { marginTop: 8 }]}>
+        <TouchableOpacity style={homeStyles.searchBar} activeOpacity={0.9}>
+          <Image
+            source={require('../assets/IconoBusqueda.png')}
+            style={homeStyles.searchIcon}
+          />
           <TextInput
-            placeholder="Buscar por título, descripción, autor..."
+            placeholder="Buscar"
             placeholderTextColor="#999"
-            style={s.searchInput}
+            style={homeStyles.searchInput}
             value={search}
             onChangeText={setSearch}
             returnKeyType="search"
-            onSubmitEditing={() => flatListRef.current?.scrollToOffset?.({ offset: 0, animated: true })}
+            onSubmitEditing={() =>
+              flatListRef.current?.scrollToOffset?.({ offset: 0, animated: true })
+            }
           />
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* Áreas — DESPLEGABLE */}
@@ -513,7 +616,11 @@ export default function CategoriaFeedScreen({ navigation, route }) {
         <TouchableOpacity onPress={toggleAreas} activeOpacity={0.8} style={s.accHeader}>
           <Text style={s.accTitle}>Áreas</Text>
           <View style={s.accRight}>
-            {selectedArea ? <Text style={s.accSelected}>{selectedArea}</Text> : <Text style={s.accSelectedMuted}>Todas</Text>}
+            {selectedArea ? (
+              <Text style={s.accSelected}>{selectedArea}</Text>
+            ) : (
+              <Text style={s.accSelectedMuted}>Todas</Text>
+            )}
             <Animated.View style={{ transform: [{ rotate: caretRotate }] }}>
               <Ionicons name="chevron-down" size={18} color="#0f172a" />
             </Animated.View>
@@ -532,9 +639,11 @@ export default function CategoriaFeedScreen({ navigation, route }) {
                 <Text style={[s.areaChipText, !selectedArea && s.areaChipTextActive]}>Todas</Text>
               </TouchableOpacity>
 
-              {/* Áreas específicas (SOLO las dadas) */}
+              {/* Áreas específicas */}
               {areasDisponibles.map((a) => {
-                const active = !!selectedArea && selectedArea.toLowerCase() === a.toLowerCase();
+                const active =
+                  !!selectedArea &&
+                  selectedArea.toLowerCase() === a.toLowerCase();
                 return (
                   <TouchableOpacity
                     key={a}
@@ -551,6 +660,73 @@ export default function CategoriaFeedScreen({ navigation, route }) {
         )}
       </View>
 
+      {/* SELECTOR DE ORDEN (HU-014-BA) */}
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          paddingHorizontal: 20,
+          marginTop: 4,
+          marginBottom: 4,
+        }}
+      >
+        <Text style={{ fontSize: 12, color: '#CBD5F5', marginRight: 8 }}>
+          Ordenar por:
+        </Text>
+
+        <TouchableOpacity
+          onPress={() => setSortMode(SORT_MODES.DATE_DESC)}
+          activeOpacity={0.8}
+          style={{
+            paddingHorizontal: 10,
+            paddingVertical: 4,
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor:
+              sortMode === SORT_MODES.DATE_DESC ? '#1D4ED8' : '#64748B',
+            backgroundColor:
+              sortMode === SORT_MODES.DATE_DESC ? '#E0ECFF' : 'transparent',
+            marginRight: 6,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 12,
+              color:
+                sortMode === SORT_MODES.DATE_DESC ? '#0F172A' : '#64748B',
+            }}
+          >
+            Fecha
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => setSortMode(SORT_MODES.RELEVANCE)}
+          activeOpacity={0.8}
+          style={{
+            paddingHorizontal: 10,
+            paddingVertical: 4,
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor:
+              sortMode === SORT_MODES.RELEVANCE ? '#1D4ED8' : '#64748B',
+            backgroundColor:
+              sortMode === SORT_MODES.RELEVANCE ? '#E0ECFF' : 'transparent',
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 12,
+              color:
+                sortMode === SORT_MODES.RELEVANCE ? '#0F172A' : '#64748B',
+            }}
+          >
+            Relevancia
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <Text style={s.titlePublicacion}>Publicaciones</Text>
 
       <View style={s.feedContainer}>
@@ -560,11 +736,13 @@ export default function CategoriaFeedScreen({ navigation, route }) {
           keyExtractor={(item, i) => String(item?.id ?? i)}
           contentContainerStyle={[homeStyles.listContent, homeStyles.listContentWithBar]}
           renderItem={renderItem}
-          extraData={{ votesMap, menuPubId, search, selectedArea, areasOpen }}
+          extraData={{ votesMap, menuPubId, search, selectedArea, areasOpen, sortMode }}
           ListEmptyComponent={
             <View style={s.emptyWrap}>
               <Text style={s.emptyText}>
-                {search || selectedArea ? 'Sin resultados para el filtro' : 'Aún no hay publicaciones en esta categoría'}
+                {search || selectedArea
+                  ? 'Sin resultados para el filtro'
+                  : 'Aún no hay publicaciones en esta categoría'}
               </Text>
             </View>
           }
@@ -572,13 +750,13 @@ export default function CategoriaFeedScreen({ navigation, route }) {
         />
       </View>
 
-      {/* Menú inferior (Home) */}
+            {/* ====== MENÚ FLOTANTE INFERIOR (copiado de Home) ====== */}
       <View style={homeStyles.bottomNav}>
         <TouchableOpacity
           onPress={() => {
             navigation.navigate('Home');
             requestAnimationFrame(() => {
-              flatListRef.current?.scrollToOffset?.({ offset: 0, animated: true });
+              flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
             });
           }}
         >
@@ -590,33 +768,62 @@ export default function CategoriaFeedScreen({ navigation, route }) {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
+          onPressIn={() =>
+            Animated.spring(scaleAnim, { toValue: 1.2, useNativeDriver: true }).start()
+          }
+          onPressOut={() =>
+            Animated.spring(scaleAnim, {
+              toValue: 1,
+              friction: 3,
+              tension: 40,
+              useNativeDriver: true,
+            }).start(() => navigation.navigate('CrearPublicacion'))
+          }
           style={{ transform: [{ scale: scaleAnim }] }}
           activeOpacity={0.9}
         >
           <Image source={require('../assets/Nav_Publicacion.png')} style={homeStyles.publicarIcono} />
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => Alert.alert('Usuarios', 'Próximamente…')}>
-          <Image source={require('../assets/Nav_Usuario.png')} style={homeStyles.navIcon} />
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('SugerenciasUsuarios')}
+        >
+          <Image
+            source={require('../assets/Nav_Usuario.png')}
+            style={homeStyles.navIcon}
+          />
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => Alert.alert('Chat', 'Próximamente…')}>
-          <Image source={require('../assets/Nav_Chat.png')} style={homeStyles.navIcon} />
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('Mensajes')}
+        >
+          <Image
+            source={require('../assets/Nav_Mensaje.png')}
+            style={homeStyles.navIcon}
+          />
         </TouchableOpacity>
       </View>
+
 
       {/* Modal Reporte */}
       {reportModalOpen && (
         <View style={o.modalBackdrop}>
           <View style={o.modalSheet}>
             <Text style={o.modalTitle}>Reportar publicación</Text>
-            <Text style={o.modalSub}>{reportTarget?.titulo ? `“${reportTarget.titulo}”` : 'Publicación'}</Text>
+            <Text style={o.modalSub}>
+              {reportTarget?.titulo ? `“${reportTarget.titulo}”` : 'Publicación'}
+            </Text>
 
             <View style={{ marginTop: 10 }}>
               {REPORT_REASONS.map((r) => (
-                <TouchableOpacity key={r.key} style={o.radioRow} onPress={() => setReportReason(r.key)} activeOpacity={0.8}>
+                <TouchableOpacity
+                  key={r.key}
+                  style={o.radioRow}
+                  onPress={() => setReportReason(r.key)}
+                  activeOpacity={0.8}
+                >
                   <View style={[o.radioOuter, reportReason === r.key && o.radioOuterActive]}>
                     {reportReason === r.key && <View style={o.radioInner} />}
                   </View>
@@ -635,13 +842,17 @@ export default function CategoriaFeedScreen({ navigation, route }) {
             />
 
             <View style={o.modalActions}>
-              <TouchableOpacity style={o.modalBtnGhost} onPress={() => { setReportModalOpen(false); setMenuPubId(null); }}>
+              <TouchableOpacity
+                style={o.modalBtnGhost}
+                onPress={() => { setReportModalOpen(false); setMenuPubId(null); }}
+              >
                 <Text style={o.modalBtnGhostText}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={o.modalBtnPrimary}
                 onPress={() => {
                   if (!reportTarget?.id) { setReportModalOpen(false); return; }
+                  // Aquí ya podrías llamar a tu endpoint de Reportes si quieres
                   setReportModalOpen(false);
                 }}
               >

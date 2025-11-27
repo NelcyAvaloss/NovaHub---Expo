@@ -579,13 +579,13 @@ export default function PerfilUsuarioScreen({ navigation, route }) {
       {/* CONTENIDO SEGÚN PESTAÑA */}
       {content}
 
-      {/* ====== MENÚ FLOTANTE INFERIOR ====== */}
+          {/* ====== MENÚ FLOTANTE INFERIOR (copiado de Home) ====== */}
       <View style={homeStyles.bottomNav}>
         <TouchableOpacity
           onPress={() => {
             navigation.navigate('Home');
             requestAnimationFrame(() => {
-              flatListRef.current?.scrollToOffset?.({ offset: 0, animated: true });
+              flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
             });
           }}
         >
@@ -597,22 +597,44 @@ export default function PerfilUsuarioScreen({ navigation, route }) {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
+          onPressIn={() =>
+            Animated.spring(scaleAnim, { toValue: 1.2, useNativeDriver: true }).start()
+          }
+          onPressOut={() =>
+            Animated.spring(scaleAnim, {
+              toValue: 1,
+              friction: 3,
+              tension: 40,
+              useNativeDriver: true,
+            }).start(() => navigation.navigate('CrearPublicacion'))
+          }
           style={{ transform: [{ scale: scaleAnim }] }}
           activeOpacity={0.9}
         >
           <Image source={require('../assets/Nav_Publicacion.png')} style={homeStyles.publicarIcono} />
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => Alert.alert('Usuarios', 'Próximamente…')}>
-          <Image source={require('../assets/Nav_Usuario.png')} style={homeStyles.navIcon} />
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('SugerenciasUsuarios')}
+        >
+          <Image
+            source={require('../assets/Nav_Usuario.png')}
+            style={homeStyles.navIcon}
+          />
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => Alert.alert('Chat', 'Próximamente…')}>
-          <Image source={require('../assets/Nav_Chat.png')} style={homeStyles.navIcon} />
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('Mensajes')}
+        >
+          <Image
+            source={require('../assets/Nav_Mensaje.png')}
+            style={homeStyles.navIcon}
+          />
         </TouchableOpacity>
       </View>
+
 
       {/* ===== Modal Reporte ===== */}
       {reportModalOpen && (

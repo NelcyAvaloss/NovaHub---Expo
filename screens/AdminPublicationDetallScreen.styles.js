@@ -6,7 +6,7 @@ export default StyleSheet.create({
   scroll: { paddingBottom: 16 },
 
   /* ===== HEADER ===== */
-  headerBg: { height: 160, justifyContent: 'flex-end' },
+  headerBg: { height: 110, justifyContent: 'flex-end' },
   headerBgImage: { resizeMode: 'cover' },
   headerOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15,23,42,0.28)' },
 

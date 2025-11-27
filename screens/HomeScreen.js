@@ -29,6 +29,15 @@ const dislikeIconActive = require('../assets/Icono_DislikeActivo.png');
 const ROLE_ADMIN = 'administrador';
 const ROLE_STUDENT = 'estudiante';
 
+// modos de ordenamiento
+const SORT_MODES = {
+  DATE_DESC: 'fecha_desc',
+  RELEVANCE: 'relevancia',
+};
+
+// 24 horas en milisegundos
+const MS_24H = 24 * 60 * 60 * 1000;
+
 /* ==== Config carrusel categorías (inline) ==== */
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = Math.round(width * 0.30);
@@ -63,80 +72,146 @@ export default function HomeScreen({ navigation }) {
   const [rolUsuario, setRolUsuario] = useState(null);
   const [menuPubId, setMenuPubId] = useState(null);
 
-
-
-
   // BÚSQUEDA
-const [searchText, setSearchText] = useState('');
+  const [searchText, setSearchText] = useState('');
+  // ORDEN
+  const [sortMode, setSortMode] = useState(SORT_MODES.DATE_DESC);
 
-const publicacionesFiltradas = useMemo(() => {
-  if (!searchText.trim()) return publicaciones;
+  const publicacionesFiltradas = useMemo(() => {
+    const term = searchText.trim().toLowerCase();
 
-  const term = searchText.toLowerCase();
+    // 1) Filtrar por texto (si hay búsqueda)
+    let filtradas = publicaciones;
+    if (term) {
+      filtradas = publicaciones.filter((p) => {
+        const texto = [
+          p.titulo,
+          p.descripcion,
+          p.autor,
+          p.categoria,
+          p.area,
+          p.equipo_colaborador,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
 
-  return publicaciones.filter((p) => {
-    const titulo = p.titulo?.toLowerCase() || '';
-    const desc = p.descripcion?.toLowerCase() || '';
-    const autor = p.autor?.toLowerCase() || '';
-    const categoria = p.categoria?.toLowerCase() || '';
-    const area = p.area?.toLowerCase() || '';
+        return texto.includes(term);
+      });
+    }
 
-    return (
-      titulo.includes(term) ||
-      desc.includes(term) ||
-      autor.includes(term) ||
-      categoria.includes(term) ||
-      area.includes(term)
-    );
-  });
-}, [publicaciones, searchText]);
+    // 2) Ordenar según el modo seleccionado
+    const resultado = [...filtradas];
 
+    const getFechaMs = (p) =>
+      p.created_at ? new Date(p.created_at).getTime() : 0;
 
+    const getRelevancia = (p) => {
+      const v = votesMap[p.id] || {};
+      const likes = v.likes ?? p.likes_count ?? p.likes ?? 0;
+      const dislikes = v.dislikes ?? p.dislikes_count ?? p.dislikes ?? 0;
+      return likes - dislikes;
+    };
 
+    if (sortMode === SORT_MODES.DATE_DESC) {
+      // más reciente primero
+      resultado.sort((a, b) => getFechaMs(b) - getFechaMs(a));
+    } else if (sortMode === SORT_MODES.RELEVANCE) {
+      // mayor relevancia (likes - dislikes) primero, empate -> fecha
+      resultado.sort((a, b) => {
+        const rb = getRelevancia(b);
+        const ra = getRelevancia(a);
+        if (rb !== ra) return rb - ra;
+        return getFechaMs(b) - getFechaMs(a);
+      });
+    }
 
-
-
+    return resultado;
+  }, [publicaciones, searchText, sortMode, votesMap]);
 
   // ALERTA GLOBAL (solo visual + realtime)
   const [alertaGlobal, setAlertaGlobal] = useState(null);
   const [alertaVisible, setAlertaVisible] = useState(true);
-
-
-
-
-
 
   // === Toggle carrusel (entre header y buscador) con LayoutAnimation ===
   const [catsOpen, setCatsOpen] = useState(false);
   const [catsHeight, setCatsHeight] = useState(0);
   const catsOpacity = useRef(new Animated.Value(0)).current;
 
-  // Habilitar LayoutAnimation en Android
+  // Habilitar LayoutAnimation en Android + cargar alerta inicial / al enfocar Home
   useEffect(() => {
     if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
       UIManager.setLayoutAnimationEnabledExperimental(true);
     }
+
     const obtenerAlerta = async () => {
       try {
         const { data, error } = await supabase
           .from('Alertas')
           .select('*')
+          .order('actualizado_en', { ascending: false })
           .limit(1);
+
         if (error) {
           console.error('Error al obtener alerta:', error);
           return;
         }
+
         if (data && data.length > 0) {
-          setAlertaGlobal(data[0]);
+          const alerta = data[0];
+
+          // 👉 Si el admin "borró" dejando título y descripción vacíos, NO mostrar nada.
+          const tieneTitulo =
+            typeof alerta.titulo === 'string' && alerta.titulo.trim().length > 0;
+          const tieneDescripcion =
+            typeof alerta.descripcion === 'string' && alerta.descripcion.trim().length > 0;
+
+          if (!tieneTitulo && !tieneDescripcion) {
+            setAlertaGlobal(null);
+            setAlertaVisible(false);
+            return;
+          }
+
+          // Tomar la fecha de referencia para las 24h
+          const fechaRaw =
+            alerta.actualizado_en ||
+            alerta.updated_at ||
+            alerta.created_at ||
+            null;
+
+          if (fechaRaw) {
+            const msFecha = new Date(fechaRaw).getTime();
+            const diff = Date.now() - msFecha;
+
+            // Si ya pasaron más de 24h, no se muestra
+            if (diff > MS_24H) {
+              setAlertaGlobal(null);
+              setAlertaVisible(false);
+              return;
+            }
+          }
+
+          setAlertaGlobal(alerta);
+          setAlertaVisible(true);
+        } else {
+          // No hay filas en Alertas → nada que mostrar
+          setAlertaGlobal(null);
+          setAlertaVisible(false);
         }
       } catch (error) {
         console.error('Error al obtener alerta:', error);
       }
     };
 
-    obtenerAlerta();
+    if (isFocused) {
+      obtenerAlerta();
+    }
+  }, [isFocused]);
+
+  // Cerrar alerta SOLO en esta sesión (el borrado definitivo lo hace el admin)
+  const handleCerrarAlerta = useCallback(() => {
+    setAlertaVisible(false);
   }, []);
-  
 
   const toggleCats = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -193,14 +268,16 @@ const publicacionesFiltradas = useMemo(() => {
       catsListRef.current?.scrollToOffset({ offset: value, animated: false });
     });
 
-    autoAnimRef.current = Animated.timing(auto, {
+    const autoAnim = Animated.timing(auto, {
       toValue: offsetFromIndex(nextIndex),
       duration,
       easing: Easing.inOut(Easing.cubic),
       useNativeDriver: false,
     });
 
-    autoAnimRef.current.start(({ finished }) => {
+    autoAnimRef.current = autoAnim;
+
+    autoAnim.start(({ finished }) => {
       auto.removeListener(listenerId);
       if (finished) {
         setCurrentIndex(nextIndex);
@@ -368,16 +445,30 @@ const publicacionesFiltradas = useMemo(() => {
     }
   }, [isFocused]);
 
-// Pertenece a las ALERTAS
-
+  // Pertenece a las ALERTAS (cuando vienes de otra pantalla)
   useEffect(() => {
-  const params = navigation.getState()?.routes?.find(r => r.name === 'Home')?.params;
-  if (params?.alerta) {
-    setAlertaGlobal(params.alerta);
-    setAlertaVisible(true);
-  }
-}, [navigation, isFocused]);
+    const params = navigation.getState()?.routes?.find(r => r.name === 'Home')?.params;
+    if (params?.alerta) {
+      const alerta = params.alerta;
 
+      const tituloOk =
+        typeof alerta.titulo === 'string' && alerta.titulo.trim().length > 0;
+      const descOk =
+        typeof alerta.descripcion === 'string' && alerta.descripcion.trim().length > 0;
+
+      // Si la alerta pasada por params está vacía, no mostrar nada
+      if (!tituloOk && !descOk) {
+        setAlertaGlobal(null);
+        setAlertaVisible(false);
+      } else {
+        setAlertaGlobal(alerta);
+        setAlertaVisible(true);
+      }
+    }
+  }, [navigation, isFocused]);
+
+
+  
 
   // ---------- publicaciones + votos ----------
   useFocusEffect(
@@ -553,7 +644,7 @@ const publicacionesFiltradas = useMemo(() => {
     });
   };
 
-  // Helper para crear notificaciones (reutilizable también para mensajes/comentarios)
+  // Helper para crear notificaciones
   const crearNotificacion = async ({
     receptorId,
     emisorId,
@@ -566,7 +657,6 @@ const publicacionesFiltradas = useMemo(() => {
     try {
       if (!receptorId || !emisorId || receptorId === emisorId) return;
 
-      // IMPORTANTE: nombre de tabla en minúsculas
       const { error } = await supabase.from('notificaciones').insert([
         {
           id_usuario_receptor: receptorId,
@@ -596,7 +686,7 @@ const publicacionesFiltradas = useMemo(() => {
       return;
     }
 
-    // Actualización optimista local (no se toca)
+    // Actualización optimista local
     setVotesMap((prev) => {
       const cur = prev[pubId] || { likes: 0, dislikes: 0, myVote: 0 };
       let { likes, dislikes, myVote } = cur;
@@ -634,7 +724,7 @@ const publicacionesFiltradas = useMemo(() => {
           );
       }
 
-      // Si el voto final es un LIKE, creamos notificación al autor
+      // Notificación por like
       if (type === 'like' && intended === 1) {
         const pub = publicaciones.find((p) => p.id === pubId);
         const receptorId = pub ? getAuthorIdFromItem(pub) : null;
@@ -683,7 +773,7 @@ const publicacionesFiltradas = useMemo(() => {
     }
   };
 
-  // === gap dinámico bajo el icono (cerrado perfecto / abierto compacto) ===
+  // === gap dinámico bajo el icono ===
   const gapBelowIcon = catsOpen ? 4 : 14;
 
   const renderItem = useCallback(
@@ -781,13 +871,6 @@ const publicacionesFiltradas = useMemo(() => {
 
 
 
-
-//---------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-
-
-
-
   return (
     <View style={styles.container}>
       <ImageBackground source={require('../assets/FondoNovaHub.png')} style={styles.headerBackground}>
@@ -806,7 +889,7 @@ const publicacionesFiltradas = useMemo(() => {
                 if (rolUsuario === ROLE_ADMIN) {
                   navigation.navigate('AdminPanel', { screen: 'AdminDashboard' });
                 } else {
-                  navigation.navigate('Notificaciones');  
+                  navigation.navigate('Notificaciones');
                 }
               }}
               activeOpacity={0.8}
@@ -891,76 +974,120 @@ const publicacionesFiltradas = useMemo(() => {
           removeClippedSubviews
           onScroll={onScroll}
           scrollEventThrottle={16}
-          onScrollBeginDrag={onScrollBeginDrag}
           onMomentumScrollEnd={onMomentumScrollEnd}
+          onScrollBeginDrag={onScrollBeginDrag}
           renderItem={renderItem}
         />
       </Animated.View>
 
-
-
-
-
       {/* ==== BUSCADOR ==== */}
-<View style={[styles.searchContainer, { marginTop: gapBelowIcon }]}>
-  <TouchableOpacity style={styles.searchBar} activeOpacity={0.9}>
-    <Image source={require('../assets/IconoBusqueda.png')} style={styles.searchIcon} />
-    <TextInput
-      placeholder="Buscar"
-      placeholderTextColor="#999"
-      style={styles.searchInput}
-      value={searchText}
-      onChangeText={setSearchText}
-    />
-  </TouchableOpacity>
-</View>
-
-
-
-
-
-      
+      <View style={[styles.searchContainer, { marginTop: gapBelowIcon }]}>
+        <TouchableOpacity style={styles.searchBar} activeOpacity={0.9}>
+          <Image source={require('../assets/IconoBusqueda.png')} style={styles.searchIcon} />
+          <TextInput
+            placeholder="Buscar"
+            placeholderTextColor="#999"
+            style={styles.searchInput}
+            value={searchText}
+            onChangeText={setSearchText}
+          />
+        </TouchableOpacity>
+      </View>
 
       {/* ==== ALERTA GLOBAL (DESPUÉS DEL BUSCADOR) ==== */}
-{alertaGlobal && alertaVisible && (
-  <View style={styles.alertContainer}>
-    <View style={styles.alertIconWrap}>
-      <Ionicons name="alert-circle" size={20} color="#B45309" />
-    </View>
+      {alertaGlobal && alertaVisible && (
+        <View style={styles.alertContainer}>
+          <View style={styles.alertIconWrap}>
+            <Ionicons name="alert-circle" size={20} color="#B45309" />
+          </View>
 
-    <View style={styles.alertTextWrap}>
-      <Text style={styles.alertTitle} numberOfLines={1}>
-        {alertaGlobal.titulo || 'Alerta'}
-      </Text>
+          <View style={styles.alertTextWrap}>
+            <Text style={styles.alertTitle} numberOfLines={1}>
+              {alertaGlobal.titulo || 'Alerta'}
+            </Text>
 
-      {alertaGlobal.descripcion ? (
-        <Text style={styles.alertMessage} numberOfLines={3}>
-          {alertaGlobal.descripcion}
+            {alertaGlobal.descripcion ? (
+              <Text style={styles.alertMessage} numberOfLines={3}>
+                {alertaGlobal.descripcion}
+              </Text>
+            ) : null}
+          </View>
+
+          <TouchableOpacity
+            onPress={handleCerrarAlerta}
+            style={styles.alertCloseBtn}
+          >
+            <Ionicons name="close" size={18} color="#64748B" />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* ==== SELECTOR DE ORDEN ==== */}
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          paddingHorizontal: 20,
+          marginTop: 8,
+          marginBottom: 4,
+        }}
+      >
+        <Text style={{ fontSize: 12, color: '#8d8f94ff', marginRight: 8 }}>
+          Ordenar por:
         </Text>
-      ) : null}
-    </View>
 
-    <TouchableOpacity
-      onPress={() => setAlertaVisible(false)}
-      style={styles.alertCloseBtn}
-    >
-      <Ionicons name="close" size={18} color="#64748B" />
-    </TouchableOpacity>
-  </View>
-)}
+        <TouchableOpacity
+          onPress={() => setSortMode(SORT_MODES.DATE_DESC)}
+          activeOpacity={0.8}
+          style={{
+            paddingHorizontal: 10,
+            paddingVertical: 4,
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor:
+              sortMode === SORT_MODES.DATE_DESC ? '#1D4ED8' : '#64748B',
+            backgroundColor:
+              sortMode === SORT_MODES.DATE_DESC ? '#E0ECFF' : 'transparent',
+            marginRight: 6,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 12,
+              color:
+                sortMode === SORT_MODES.DATE_DESC ? '#0F172A' : '#9a9ca0ff',
+            }}
+          >
+            Fecha
+          </Text>
+        </TouchableOpacity>
 
-
-
-
-
-
-
-
-
-
-
-
-
+        <TouchableOpacity
+          onPress={() => setSortMode(SORT_MODES.RELEVANCE)}
+          activeOpacity={0.8}
+          style={{
+            paddingHorizontal: 10,
+            paddingVertical: 4,
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor:
+              sortMode === SORT_MODES.RELEVANCE ? '#1D4ED8' : '#64748B',
+            backgroundColor:
+              sortMode === SORT_MODES.RELEVANCE ? '#E0ECFF' : 'transparent',
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 12,
+              color:
+                sortMode === SORT_MODES.RELEVANCE ? '#0F172A' : '#64748B',
+            }}
+          >
+            Relevancia
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       <Text style={styles.titlePublicacion}>Publicaciones</Text>
 
@@ -1109,7 +1236,7 @@ const publicacionesFiltradas = useMemo(() => {
               </View>
             );
           }}
-          extraData={{ votesMap, menuPubId }}
+          extraData={{ votesMap, menuPubId, sortMode }}
           ListEmptyComponent={
             <View style={{ alignItems: 'center', marginTop: 24 }}>
               <Text style={{ color: '#6B7280' }}>Aún no hay publicaciones</Text>
@@ -1148,13 +1275,28 @@ const publicacionesFiltradas = useMemo(() => {
           <Image source={require('../assets/Nav_Publicacion.png')} style={styles.publicarIcono} />
         </TouchableOpacity>
 
-        <TouchableOpacity>
-          <Image source={require('../assets/Nav_Usuario.png')} style={styles.navIcon} />
-        </TouchableOpacity>
+        <TouchableOpacity
+  activeOpacity={0.8}
+  onPress={() => navigation.navigate('SugerenciasUsuarios')}
+>
+  <Image
+    source={require('../assets/Nav_Usuario.png')}
+    style={styles.navIcon}
+  />
+</TouchableOpacity>
 
-        <TouchableOpacity>
-          <Image source={require('../assets/Nav_Chat.png')} style={styles.navIcon} />
-        </TouchableOpacity>
+
+        <TouchableOpacity
+  activeOpacity={0.8}
+  onPress={() => navigation.navigate('Mensajes')}
+>
+  <Image
+    source={require('../assets/Nav_Mensaje.png')}
+    style={styles.navIcon}
+  />
+</TouchableOpacity>
+
+
       </View>
 
       {/* Modal Reporte */}

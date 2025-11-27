@@ -1,22 +1,40 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, StatusBar } from 'react-native';
+
+const STATUSBAR = StatusBar.currentHeight || 0;
 
 const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#F8FAFC' },
+  screen: { 
+    flex: 1,
+    backgroundColor: '#F8FAFC', // pantalla normal
+  },
 
-  // Header / portada
-  headerWrap: { position: 'relative' },
-  headerBg: { height: 180, justifyContent: 'flex-start' },
+  // HEADER pegado TOTAL arriba
+  headerWrap: { 
+    width: '100%',
+    backgroundColor: '#000', // se oculta bajo el fondo
+  },
+
+  headerBg: {
+    width: '100%',
+    height: 125,
+    paddingTop: STATUSBAR, // ⬅️ esto elimina la franja blanca
+    justifyContent: 'flex-start',
+  },
+
   headerBgImage: { resizeMode: 'cover' },
+
   headerOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(6, 10, 30, 0.28)',
   },
+
   headerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingTop: 40,
+    paddingTop: 10, 
   },
+
   backBtn: {
     paddingHorizontal: 8,
     paddingVertical: 6,
@@ -29,16 +47,17 @@ const s = StyleSheet.create({
     backgroundColor: '#F8FAFC',
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
-    marginTop: -18,
+    marginTop: -1,
   },
 
   avatarWrap: {
     position: 'absolute',
     left: 0, right: 0,
-    bottom: -42,
+    bottom: -25,
     alignItems: 'center',
     zIndex: 20,
   },
+
   avatarImg: {
     width: 110,
     height: 110,
@@ -49,10 +68,11 @@ const s = StyleSheet.create({
   },
 
   profileInfo: {
-    paddingTop: 52,
+    paddingTop: 25,
     alignItems: 'center',
     paddingHorizontal: 16,
   },
+
   userName: { fontSize: 20, fontWeight: '800', color: '#0f172a' },
   userRole: { marginTop: 2, fontSize: 13, color: '#6B7280' },
   userUni:  { marginTop: 2, fontSize: 13, color: '#6B7280' },
@@ -92,8 +112,8 @@ const s = StyleSheet.create({
   tabText: { color: '#334155', fontWeight: '600' },
   tabTextActive: { color: '#0f172a' },
 
-  // Lista “personas”
   listContentPeople: { paddingHorizontal: 12, paddingBottom: 24 },
+
   personRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -116,12 +136,10 @@ const s = StyleSheet.create({
   },
   personBtnText: { color: '#F8FAFC', fontWeight: '700', fontSize: 12 },
 
-  // Empty
   emptyBox: { alignItems: 'center', marginTop: 24 },
   emptyText: { color: '#6B7280' },
 });
 
-// Menú ⋮ de las tarjetas
 export const ls = StyleSheet.create({
   kebabBtn: { marginLeft: 'auto', padding: 6 },
   kebabText: { fontSize: 22, color: '#64748B', lineHeight: 18 },
@@ -144,7 +162,6 @@ export const ls = StyleSheet.create({
   kebabItemText: { color: '#0f172a', fontSize: 14 },
 });
 
-// Estilos del modal de reportes 
 export const reportStyles = StyleSheet.create({
   modalBackdrop: {
     position: 'absolute',
@@ -183,11 +200,15 @@ export const reportStyles = StyleSheet.create({
   },
   modalBtnPrimaryText: { color: '#fff', fontWeight: '700' },
 
-  // Radios
   radioRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
   radioOuter: {
-    width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#CBD5E1',
-    alignItems: 'center', justifyContent: 'center', marginRight: 10,
+    width: 18, height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
   },
   radioOuterActive: { borderColor: '#0e0e2c' },
   radioInner: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#0e0e2c' },

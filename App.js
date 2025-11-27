@@ -23,6 +23,9 @@ import ConfirmRecupScreen from './screens/ConfirmRecupScreen';
 import DetallePublicacionScreen from './screens/DetallePublicacionScreen';
 import RankingScreen from './screens/RankingScreen';
 import PerfilUsuarioScreen from './screens/PerfilUsuarioScreen';
+import SugerenciasUsuariosScreen from './screens/SugerenciasUsuariosScreen';
+import MensajesScreen from './screens/MensajesScreen';
+
 
 /* --------- ADMIN (tabs + detalle) --------- */
 import AdminDashboardScreen from './screens/AdminDashboardScreen';
@@ -52,7 +55,10 @@ const Tab = createBottomTabNavigator();
 
 
 /** RUTA INICIAL **/
-const INITIAL_ROUTE = __DEV__ ? 'AdminPanel' : 'Bienvenido';
+const INITIAL_ROUTE = 'Bienvenido';
+
+
+//**const INITIAL_ROUTE = __DEV__ ? 'AdminPanel' : 'Bienvenido';
 
 /* --------- Tabs del Panel de Administración --------- */
 function AdminTabs() {
@@ -164,12 +170,11 @@ export default function App() {
             <RootStack.Screen name="PerfilUsuario" component={PerfilUsuarioScreen} />
             <RootStack.Screen name="CarruselCategorias" component={CarruselCategoriasScreen} />
             <RootStack.Screen name="CategoriaFeed" component={CategoriaFeedScreen} />
+            <RootStack.Screen name="Notificaciones" component={NotificacionesScreen} options={{ headerShown: false }} />
+            <RootStack.Screen name="SugerenciasUsuarios" component={SugerenciasUsuariosScreen} />
+            <RootStack.Screen name="Mensajes" component={MensajesScreen} />
 
-            <RootStack.Screen
-              name="Notificaciones"
-              component={NotificacionesScreen}
-              options={{ headerShown: false }}
-            />
+
 
             {/* --------- Panel de Administración (tabs) --------- */}
             <RootStack.Screen name="AdminPanel" component={AdminTabs} />

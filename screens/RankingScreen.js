@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useEffect } from 'react';
+import React, { useMemo, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { styles as s } from './Ranking.styles';
 
-// Íconos locales solo para contadores
+// Íconos locales
 const likeIcon = require('../assets/IconoLike.png');
 const dislikeIcon = require('../assets/IconoDislike.png');
 
@@ -25,7 +25,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-// Paleta de bordes y colores del Top 3
+// Paleta de colores top 3
 const rankPalette = [
   { border: '#F6C646', text: '#F6C646' }, // Oro
   { border: '#C0C9D6', text: '#C0C9D6' }, // Plata
@@ -42,7 +42,32 @@ export default function RankingScreen({ navigation, route }) {
     Animated.timing(anim, { toValue: 1, duration: 420, useNativeDriver: true }).start();
   }, [anim]);
 
-  // Ordenar publicaciones por score
+  // ===== Helpers para perfil de autor =====
+  const getAuthorIdFromItem = (item) => {
+    return (
+      item?.id_usuario ??
+      item?.usuario_id ??
+      item?.user_id ??
+      item?.autor_id ??
+      item?.author_id ??
+      null
+    );
+  };
+
+  const openPerfilAutor = useCallback(
+    (item) => {
+      const perfil = {
+        id: getAuthorIdFromItem(item),
+        nombre: item?.autor || 'Autor',
+        email: null,
+        avatarUri: null,
+      };
+      navigation.navigate('PerfilUsuario', { perfil });
+    },
+    [navigation]
+  );
+
+  // ===== Ordenar publicaciones =====
   const data = useMemo(() => {
     const merged = (publicaciones || []).map((p, i) => {
       const v = votesMap?.[p.id] || {
@@ -74,7 +99,6 @@ export default function RankingScreen({ navigation, route }) {
       .map((s) => s.trim())
       .filter(Boolean);
 
-    // Imagen de medalla
     const getBadgeImage = () => {
       if (index === 0) return primerLugarImg;
       if (index === 1) return segundoLugarImg;
@@ -82,11 +106,23 @@ export default function RankingScreen({ navigation, route }) {
       return null;
     };
 
-    const palette = index < 3 ? rankPalette[index] : { border: 'rgba(255,255,255,0.08)', text: '#EAF2FF' };
+    const palette =
+      index < 3
+        ? rankPalette[index]
+        : { border: 'rgba(255,255,255,0.08)', text: '#EAF2FF' };
+
+    const starNumber = index + 1;
 
     return (
-      <View style={[s.card, { borderColor: palette.border }]}>
-        {/* Medalla */}
+      <View
+        style={[
+          s.card,
+          { 
+            borderColor: palette.border,
+            backgroundColor: '#F4F4F5'   // ← GRIS CLARITO PARA LAS TARJETAS
+          }
+        ]}
+      >
         <View style={s.rankBadge}>
           {index < 3 ? (
             <Image source={getBadgeImage()} style={s.rankImage} resizeMode="contain" />
@@ -95,9 +131,8 @@ export default function RankingScreen({ navigation, route }) {
           )}
         </View>
 
-        {/* Layout horizontal */}
         <View style={s.rowWrap}>
-          {/* Mini portada */}
+          {/* Portada */}
           {item.portadaUri ? (
             <Image source={{ uri: item.portadaUri }} style={s.thumb} />
           ) : (
@@ -106,36 +141,39 @@ export default function RankingScreen({ navigation, route }) {
 
           {/* Info */}
           <View style={s.infoBlock}>
-            {/* Header autor + score */}
             <View style={s.headerRow}>
               <View style={s.avatar}>
                 <Text style={s.avatarLetter}>{(item?.autor?.[0] || 'N').toUpperCase()}</Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text numberOfLines={1} style={s.author}>{item.autor || 'Autor'}</Text>
+                <TouchableOpacity activeOpacity={0.85} onPress={() => openPerfilAutor(item)}>
+                  <Text numberOfLines={1} style={s.author}>
+                    {item.autor || 'Autor'}
+                  </Text>
+                </TouchableOpacity>
                 <Text style={s.date}>
                   {item.created_at ? new Date(item.created_at).toLocaleDateString() : 'Ahora'}
                 </Text>
               </View>
+
               <View style={[s.scoreChip, { backgroundColor: palette.border }]}>
-                <Text style={[s.scoreChipText, { color: '#1B1B1B' }]}>★ {item._score}</Text>
+                <Text style={[s.scoreChipText, { color: '#1B1B1B' }]}>
+                  ★ {starNumber}
+                </Text>
               </View>
             </View>
 
-            {/* Título */}
             {!!item.titulo && (
               <Text numberOfLines={2} style={s.title}>
                 {item.titulo}
               </Text>
             )}
 
-            {/* Tags */}
             <View style={s.tagsRow}>
               {!!item.categoria && <Text style={s.tagChip}>#{item.categoria}</Text>}
               {!!item.area && <Text style={s.tagChip}>#{item.area}</Text>}
             </View>
 
-            {/* 👥 Colaboradores (MOVIDO ANTES DEL FOOTER) */}
             {colaboradores.length > 0 && (
               <View style={s.collabRow}>
                 {colaboradores.slice(0, 4).map((name, idx) => (
@@ -151,29 +189,29 @@ export default function RankingScreen({ navigation, route }) {
               </View>
             )}
 
-            {/* Footer: métricas + CTA */}
             <View style={s.footerRow}>
               <View style={s.votesGroup}>
                 <View style={s.votePill}>
                   <Image source={likeIcon} style={s.voteIcon} />
-                  <Text style={[s.voteText, { color: palette.text }]}>{item._likes}</Text>
+                  <Text style={[s.voteText, { color: index >= 3 ? '#000' : palette.text }]}>{item._likes}</Text>
                 </View>
                 <View style={{ width: 8 }} />
                 <View style={[s.votePill, s.votePillDown]}>
                   <Image source={dislikeIcon} style={s.voteIcon} />
-                  <Text style={[s.voteText, { color: palette.text }]}>{item._dislikes}</Text>
+                  <Text style={[s.voteText, { color: index >= 3 ? '#000' : palette.text }]}>{item._dislikes}</Text>
                 </View>
               </View>
 
               <TouchableOpacity
                 style={s.readMoreBtn}
                 activeOpacity={0.85}
-                onPress={() => navigation.navigate('DetallePublicacion', { publicacion: item })}
+                onPress={() =>
+                  navigation.navigate('DetallePublicacion', { publicacion: item })
+                }
               >
                 <Text style={s.readMoreText}>Ver más</Text>
               </TouchableOpacity>
             </View>
-
           </View>
         </View>
       </View>
@@ -181,8 +219,9 @@ export default function RankingScreen({ navigation, route }) {
   };
 
   return (
-    <View style={s.container}>
-      {/* Header */}
+    <View style={[s.container, { backgroundColor: '#FFFFFF' }]}> 
+      {/*  FONDO BLANCO */}
+
       <ImageBackground source={require('../assets/FondoNovaHub.png')} style={s.headerBg}>
         <Animated.View
           style={[
@@ -201,7 +240,6 @@ export default function RankingScreen({ navigation, route }) {
         </Animated.View>
       </ImageBackground>
 
-      {/* Lista ranking */}
       <FlatList
         data={data}
         keyExtractor={(item) => String(item._key)}
