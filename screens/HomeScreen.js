@@ -138,15 +138,9 @@ export default function HomeScreen({ navigation }) {
   const [catsHeight, setCatsHeight] = useState(0);
   const catsOpacity = useRef(new Animated.Value(0)).current;
 
-  // Habilitar LayoutAnimation en Android + cargar alerta inicial / al enfocar Home
-  useEffect(() => {
-    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-      UIManager.setLayoutAnimationEnabledExperimental(true);
-    }
-
-    const obtenerAlerta = async () => {
-      try {
-        const { data, error } = await supabase
+  const obtenerAlerta = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
           .from('Alertas')
           .select('*')
           .order('actualizado_en', { ascending: false })
@@ -201,12 +195,32 @@ export default function HomeScreen({ navigation }) {
       } catch (error) {
         console.error('Error al obtener alerta:', error);
       }
-    };
+  }, []);
+
+  const subscribeToAlertaChanges = useCallback(async() => {
+    const subscription = supabase
+      .channel('alertas-channel')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'Alertas' }, payload => {
+        console.log('Cambio en alertas recibido:', payload);
+        obtenerAlerta();
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(subscription);
+    }
+  }, [obtenerAlerta]);
+  // Habilitar LayoutAnimation en Android + cargar alerta inicial / al enfocar Home
+  useEffect(() => {
+    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+
+    subscribeToAlertaChanges();
 
     if (isFocused) {
       obtenerAlerta();
     }
-  }, [isFocused]);
+  }, [isFocused, obtenerAlerta, subscribeToAlertaChanges]);
 
   // Cerrar alerta SOLO en esta sesión (el borrado definitivo lo hace el admin)
   const handleCerrarAlerta = useCallback(() => {
